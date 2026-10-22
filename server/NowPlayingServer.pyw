@@ -26,6 +26,7 @@ import collections
 import json
 import logging
 import re
+import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -883,6 +884,80 @@ class Server:
             await self._media_loop()
 
 
+# ── Self-install (packaged XE-Widgets-Server.exe only) ──────────────────────
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_NAME = "XE Widgets Server"
+
+
+def _installed_exe():
+    import os
+    from pathlib import Path
+    return Path(os.environ["LOCALAPPDATA"]) / "XEWidgets" / "XE-Widgets-Server.exe"
+
+
+def _autostart(enable=None):
+    """Read (enable=None) or set whether the installed server starts with Windows."""
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as k:
+        if enable is None:
+            try:
+                winreg.QueryValueEx(k, RUN_NAME)
+                return True
+            except FileNotFoundError:
+                return False
+        if enable:
+            winreg.SetValueEx(k, RUN_NAME, 0, winreg.REG_SZ, '"%s"' % _installed_exe())
+        else:
+            try:
+                winreg.DeleteValue(k, RUN_NAME)
+            except FileNotFoundError:
+                pass
+        return enable
+
+
+def _self_install():
+    """Run from anywhere (e.g. Downloads): copy into %LOCALAPPDATA%/XEWidgets, start with Windows,
+    replace any older running copy, launch the installed copy and return True so this one exits."""
+    import ctypes
+    import os
+    import shutil
+    import subprocess
+    import sys
+    if not getattr(sys, "frozen", False):
+        return False
+    me, target = os.path.abspath(sys.executable), str(_installed_exe())
+    if os.path.normcase(me) == os.path.normcase(target):
+        return False   # already the installed copy
+    msg = ("XE Widgets server: the companion app for the XE Chat and XE Visualizer iCUE widgets.\n\n"
+           "Installing will:\n"
+           "  • copy this program to " + target + "\n"
+           "  • start it with Windows (turn off any time from its tray icon)\n"
+           "  • run it in the system tray\n\n"
+           "While running it only listens on your own PC (localhost:16329). It connects to Twitch, 7TV, "
+           "BetterTTV, FrankerFaceZ and ivr.fi for chat, emotes and stream info, reads what Windows shows as "
+           "'now playing', and captures audio for the visualizer. No admin rights needed, nothing else is changed.\n\n"
+           "Uninstall: right-click the tray icon → Uninstall.\n\nInstall now?")
+    if ctypes.windll.user32.MessageBoxW(None, msg, "Install XE Widgets server?", 0x04 | 0x20) != 6:   # Yes/No; 6 = Yes
+        return True
+    home = os.path.dirname(target)
+    os.makedirs(home, exist_ok=True)
+    subprocess.run(["taskkill", "/F", "/IM", os.path.basename(target), "/FI", f"PID ne {os.getpid()}"],
+                   capture_output=True, creationflags=0x08000000)   # updating: stop the old copy first
+    for _ in range(20):
+        try:
+            shutil.copy2(me, target)
+            break
+        except PermissionError:
+            time.sleep(0.25)
+    _autostart(True)
+    subprocess.Popen([target], cwd=home, creationflags=0x00000008)   # detached
+    ctypes.windll.user32.MessageBoxW(
+        None, "XE Widgets server is installed and running (look for the icon in your system tray).\n\n"
+              "It starts with Windows automatically. Now add XE Chat and XE Visualizer in iCUE.",
+        "XE Widgets", 0x40)
+    return True
+
+
 def _run_with_tray(server, port):
     import pystray
     from PIL import Image, ImageDraw
@@ -908,10 +983,30 @@ def _run_with_tray(server, port):
         loop.call_soon_threadsafe(loop.stop)
         icon.stop()
 
-    menu = pystray.Menu(pystray.MenuItem(f"XE Visualizer server - port {port}", None, enabled=False),
-                        pystray.Menu.SEPARATOR, pystray.MenuItem("Quit", on_quit))
+    items = [pystray.MenuItem(f"XE Widgets server - port {port}", None, enabled=False), pystray.Menu.SEPARATOR]
+    if getattr(sys, "frozen", False):
+        import ctypes
+        import os
+        import subprocess
+
+        def on_uninstall(icon, item):
+            if ctypes.windll.user32.MessageBoxW(None, "Remove the XE Widgets server from this PC?\n\n"
+                                                "The widgets stay in iCUE; remove them there if you like.",
+                                                "Uninstall XE Widgets server", 0x04 | 0x30) != 6:
+                return
+            _autostart(False)
+            home = os.path.dirname(str(_installed_exe()))
+            subprocess.Popen(f'cmd /c ping 127.0.0.1 -n 3 >nul & rmdir /s /q "{home}"',   # after we exit
+                             creationflags=0x08000000)
+            on_quit(icon, item)
+
+        items.append(pystray.MenuItem("Start with Windows", lambda icon, item: _autostart(not _autostart()),
+                                      checked=lambda item: _autostart()))
+        items.append(pystray.MenuItem("Uninstall…", on_uninstall))
+    items.append(pystray.MenuItem("Quit", on_quit))
+    menu = pystray.Menu(*items)
     threading.Thread(target=server_thread, daemon=True).start()
-    pystray.Icon("XEVisualizerServer", img, "XE Visualizer server", menu).run()
+    pystray.Icon("XEWidgetsServer", img, "XE Widgets server", menu).run()
 
 
 def main():
@@ -919,7 +1014,10 @@ def main():
     p.add_argument("--port", type=int, default=16329)
     p.add_argument("--fps", type=int, default=60, help="max audio frames pushed per second")
     p.add_argument("--no-tray", action="store_true", help="console mode, no tray icon")
+    p.add_argument("--no-install", action="store_true", help="packaged exe: run in place without installing")
     args = p.parse_args()
+    if not args.no_install and _self_install():
+        return
 
     server = Server(args.port, max(10, min(120, args.fps)))
     if not args.no_tray:

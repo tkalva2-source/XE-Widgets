@@ -5,7 +5,9 @@ Touch-friendly Twitch chat and a now-playing audio visualizer for the **Corsair 
 A vibe-coded fork by **Tkalva**: XE Chat started as a rework of the Lumo chat widget, and XE Visualizer and its companion server grew out of QuadraKev's QK XE Visualizer. Both were rebuilt from the ground up for speed, touch and a cleaner look on the Edge.
 
 <p align="center">
-  <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Widgets-Setup.bat"><img src="https://img.shields.io/badge/%E2%AC%87%20Install%20XE%20Widgets-one%20click-9146FF?style=for-the-badge" alt="Install XE Widgets"></a>
+  <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Widgets-Server.exe"><img src="https://img.shields.io/badge/%E2%AC%87%20Server-XE--Widgets--Server.exe-9146FF?style=for-the-badge" alt="Download the server"></a>
+  <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Chat.icuewidget"><img src="https://img.shields.io/badge/%E2%AC%87%20Widget-XE%20Chat-2b2b33?style=for-the-badge" alt="Download XE Chat"></a>
+  <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Visualizer.icuewidget"><img src="https://img.shields.io/badge/%E2%AC%87%20Widget-XE%20Visualizer-2b2b33?style=for-the-badge" alt="Download XE Visualizer"></a>
 </p>
 
 | Widget | What it does |
@@ -17,28 +19,32 @@ Both widgets talk to a small companion server that runs in your system tray. It 
 
 ## Install
 
-**One click:** download **[XE-Widgets-Setup.bat](https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Widgets-Setup.bat)** and double-click it. (Windows may say it protected your PC: click *More info → Run anyway*.)
+1. **Server** — download **[XE-Widgets-Server.exe](https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Widgets-Server.exe)** and run it. It shows exactly what it will do and asks before installing. No Python or admin rights needed.
+2. **Widgets** — download **[XE-Chat.icuewidget](https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Chat.icuewidget)** and/or **[XE-Visualizer.icuewidget](https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Visualizer.icuewidget)** and double-click them to add them to iCUE.
+3. Add the widgets to your Xeneon Edge in iCUE.
 
-**Or paste this into PowerShell:**
+> **"Windows protected your PC"?** The server isn't code-signed (that costs money), so SmartScreen may warn on first run. Click *More info → Run anyway*. You can check the download against the SHA256 hash listed on the release, or build it yourself from this repo (see below).
 
-```powershell
-irm https://raw.githubusercontent.com/tkalva2-source/XE-Widgets/main/setup.ps1 | iex
-```
-
-**Or manually:** download `XE-Widgets.zip` from [Releases](../../releases), unzip it and double-click `install.bat`.
-
-Any of these will:
-
-- check for Python 3.10+ (and offer to install it with winget if missing),
-- install the server's Python packages,
-- install the server to `%LOCALAPPDATA%\XEWidgets` and start it with Windows,
-- copy both widgets into iCUE.
-
-Then restart iCUE and add **XE Chat** / **XE Visualizer** to your Xeneon Edge.
-
-Run the installer again any time to update. `uninstall.bat` removes everything it installed.
+To update, run a newer `XE-Widgets-Server.exe`; it replaces the old one.
 
 > iCUE's own settings page shows a small preview of each widget that doesn't match the real layout. Adjust XE Chat with the settings button on the widget itself.
+
+## What the server installs
+
+Running `XE-Widgets-Server.exe` asks first, then:
+
+- copies itself to `%LOCALAPPDATA%\XEWidgets\XE-Widgets-Server.exe` (your user folder only, no admin rights),
+- adds one startup entry (`HKCU\...\Run\XE Widgets Server`) so it starts with Windows — toggle it from the tray icon,
+- runs in the system tray.
+
+While running it:
+
+- **only listens on your own PC** (`localhost:16329`), nothing is reachable from the network,
+- connects to Twitch, 7TV, BetterTTV, FrankerFaceZ and ivr.fi for chat, emotes, badges and stream info,
+- reads the "now playing" info Windows already shows (song, video, thumbnail) and captures audio for the visualizer,
+- decodes the stream preview when you turn it on.
+
+It collects nothing and sends nothing anywhere else. **Uninstall:** right-click the tray icon → *Uninstall…* (removes the program and its startup entry), then remove the widgets in iCUE.
 
 ## Signing in to Twitch (optional)
 
@@ -57,9 +63,13 @@ By default the visualizer follows SteelSeries Sonar's *Media* and *Aux* channels
 
 ## Troubleshooting
 
-- **Chat says it's connecting / nothing loads** — make sure the server is running (tray icon). Start it again by running `install.bat`.
-- **Widgets don't show up in iCUE** — restart iCUE after installing.
+- **Chat says it's connecting / nothing loads** — make sure the server is running (tray icon). If not, run `XE-Widgets-Server.exe` again.
+- **Widgets don't show up in iCUE** — restart iCUE after adding them.
 - **Server port** — both widgets use port `16329`. If you change it, change it in both widgets' settings.
+
+## Build it yourself
+
+Everything in the release is built from this repo. With Python 3.10+ installed, run `build-release.ps1`; it produces the server exe (via PyInstaller) and both `.icuewidget` files in `dist\`, and prints their SHA256 hashes. To run the server from source instead: `pip install -r server/requirements.txt`, then `pythonw server/NowPlayingServer.pyw`.
 
 ## Notes
 

@@ -1,26 +1,25 @@
 # Builds the files to attach to a GitHub release:
-#   dist\XE-Widgets.zip          everything a user needs (run install.bat inside)
-#   dist\XE-Chat.icuewidget      widget only, for manual import in iCUE
+#   dist\XE-Widgets-Server.exe     companion server, installs itself when run (no Python needed)
+#   dist\XE-Chat.icuewidget        double-click to add to iCUE
 #   dist\XE-Visualizer.icuewidget
-#   dist\XE-Widgets-Setup.bat    one-click installer (downloads the zip above)
+# Needs Python 3.10+ (used only to build the exe).
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $dist = Join-Path $here 'dist'
-Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue
+$work = Join-Path $env:TEMP 'xe-widgets-build'
+Remove-Item $dist, $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $dist | Out-Null
 
-function Zip($from, $to) { [IO.Compression.ZipFile]::CreateFromDirectory($from, $to) }
-Zip (Join-Path $here 'widgets\xe-chat') (Join-Path $dist 'XE-Chat.icuewidget')
-Zip (Join-Path $here 'widgets\xe-visualizer') (Join-Path $dist 'XE-Visualizer.icuewidget')
+[IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $here 'widgets\xe-chat'), (Join-Path $dist 'XE-Chat.icuewidget'))
+[IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $here 'widgets\xe-visualizer'), (Join-Path $dist 'XE-Visualizer.icuewidget'))
 
-$stage = Join-Path $env:TEMP ('xe-widgets-' + [guid]::NewGuid())
-$pkg = Join-Path $stage 'XE-Widgets'
-New-Item -ItemType Directory $pkg | Out-Null
-foreach ($item in 'widgets', 'server', 'install.bat', 'install.ps1', 'uninstall.bat', 'uninstall.ps1', 'README.md', 'LICENSE') {
-    Copy-Item (Join-Path $here $item) $pkg -Recurse
-}
-Zip $stage (Join-Path $dist 'XE-Widgets.zip')
-Remove-Item $stage -Recurse -Force
-Copy-Item (Join-Path $here 'XE-Widgets-Setup.bat') $dist
-Get-ChildItem $dist | Format-Table Name, Length
+py -m pip install --quiet --upgrade pyinstaller -r (Join-Path $here 'server\requirements.txt')
+py -m PyInstaller --noconfirm --onefile --windowed --name XE-Widgets-Server `
+    --icon (Join-Path $here 'server\icon.ico') `
+    --hidden-import pystray._win32 --collect-submodules winrt --collect-submodules pyaudiowpatch `
+    --distpath $dist --workpath $work --specpath $work `
+    (Join-Path $here 'server\NowPlayingServer.pyw')
+if ($LASTEXITCODE -ne 0) { throw 'PyInstaller failed' }
+Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem $dist | ForEach-Object { '{0,-28} {1,8:N1} MB   SHA256 {2}' -f $_.Name, ($_.Length / 1MB), (Get-FileHash $_.FullName).Hash }
