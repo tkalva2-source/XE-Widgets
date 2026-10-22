@@ -48,14 +48,49 @@ It collects nothing and sends nothing anywhere else. **Uninstall:** right-click 
 
 ## Signing in to Twitch (optional)
 
-Reading chat works without an account. To **send messages, moderate, or see your follows**, XE Chat signs in with your own free Twitch app (so nobody else's app or keys are involved):
+**Good news first: you don't need to sign in to use XE Chat.** Reading chat, emotes, 7TV paints, stream info and the stream preview all work straight away, no account needed.
 
-1. Go to [dev.twitch.tv/console](https://dev.twitch.tv/console) → **Register Your Application**.
-2. Name: anything. OAuth Redirect URL: `http://localhost`. Category: *Chat Bot* (or any). **Client Type: Public**.
-3. Copy the **Client ID** and paste it into XE Chat's *Twitch Client ID* setting in iCUE (or tap **Sign in** on the widget and paste it there).
-4. Tap **Sign in** on the widget and enter the code it shows at twitch.tv/activate.
+Signing in is only for when you want to **type in chat, use moderation tools, or see the channels you follow**. It's a one-time setup that takes about 2 minutes, and you never have to do it again.
 
-Your sign-in is stored only on your PC.
+### Why do I need to make a "Twitch app"?
+
+Twitch only lets programs sign you in if they've been registered with Twitch. Instead of everyone sharing one registration, XE Chat lets you use your **own** free one. That means:
+
+- it's yours: nobody else's app ever touches your account,
+- there's nothing to pay and nothing to publish,
+- your password never goes anywhere near the widget (you approve the sign-in on Twitch's own website).
+
+Don't worry about the word "developer" below. You're not writing any code, just filling in a short form.
+
+### Step by step
+
+1. **Open the Twitch developer console**: go to [dev.twitch.tv/console](https://dev.twitch.tv/console) and log in with your normal Twitch account.
+   - The first time, Twitch may ask you to turn on two-factor authentication (2FA) before you can register an app. That's a Twitch rule; follow its prompts and come back.
+2. Click **Register Your Application** and fill in the form:
+
+   | Field | What to put |
+   |---|---|
+   | **Name** | Anything unique, e.g. `XE Chat yourname` |
+   | **OAuth Redirect URLs** | `http://localhost` (it's required by the form but XE Chat doesn't use it) |
+   | **Category** | *Chat Bot* (any category works) |
+   | **Client Type** | **Public** ← this one matters |
+
+   Click **Create**.
+3. Back on the console, click **Manage** next to your new app and copy the **Client ID** (a long string of letters and numbers).
+   - A Client ID isn't a password, but there's no need to post it anywhere either. If you ever see a **Client Secret**, you don't need it: never share that one.
+4. **Give XE Chat the Client ID**, either way works:
+   - tap **Sign in** on the widget and paste it into the box it shows, **or**
+   - paste it into XE Chat's **Twitch Client ID** setting in iCUE.
+5. **Sign in**: tap **Sign in** on the widget. It shows a short code. On your PC or phone, go to [twitch.tv/activate](https://www.twitch.tv/activate), enter the code and click **Authorize**. The widget picks it up by itself within a few seconds.
+
+You're done! The chat box is now live and the menu shows your follows.
+
+### Good to know
+
+- Your sign-in is saved **only on your PC**, and refreshes itself automatically.
+- **Sign out** any time from the widget's menu (*Twitch account → Sign out*), or remove access completely at [twitch.tv/settings/connections](https://www.twitch.tv/settings/connections).
+- Moderation tools only appear in channels where you're a moderator (or your own).
+- **"Twitch rejected the Client ID"?** Check the app's *Client Type* is **Public**, and that the XE Widgets server is running (tray icon). XE Chat signs in through it.
 
 ## Audio source (visualizer)
 
