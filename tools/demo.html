@@ -1,0 +1,111 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>XE Chat demo</title>
+<style>
+    body { margin: 0; background: #15151a; font: 13px system-ui; color: #ccc; }
+    #bar { padding: 6px 10px; display: flex; gap: 10px; align-items: center; }
+    iframe { display: block; border: 0; background: radial-gradient(circle at 30% 20%, #3a2a6b, #101018 70%); }
+</style>
+<div id="bar">XE Chat demo, made-up chat and stream (no server needed).
+    View: <select id="view"><option>chat</option><option>preview</option><option>theater</option><option>menu</option></select></div>
+<iframe id="f" width="841" height="697"></iframe>
+<script>
+    // Runs XE Chat with scripted chat and a fake live channel, for screenshots and trying it out.
+    // Serve the repo root over http (e.g. `python -m http.server`) and open /tools/demo.html?view=preview
+    var view = new URLSearchParams(location.search).get('view') || 'chat';
+    if (new URLSearchParams(location.search).get('shot')) document.write('<style>#bar { display: none; } body { background: #0b0b10; }</style>');   // clean screenshot mode
+    document.getElementById('view').value = view;
+    document.getElementById('view').onchange = function () { location.search = '?view=' + this.value; };
+
+    // A made-up "game" frame for the stream preview
+    function frame(t) {
+        var c = document.createElement('canvas'); c.width = 1280; c.height = 720; var g = c.getContext('2d');
+        var sky = g.createLinearGradient(0, 0, 0, 720); sky.addColorStop(0, '#ff9a5c'); sky.addColorStop(0.55, '#c85a8a'); sky.addColorStop(1, '#2b1d4a');
+        g.fillStyle = sky; g.fillRect(0, 0, 1280, 720);
+        g.fillStyle = 'rgba(255,240,200,0.9)'; g.beginPath(); g.arc(900, 300, 90, 0, 7); g.fill();
+        [['#3b2a63', 430, 0.004], ['#2a1d4a', 520, 0.006], ['#1a1230', 610, 0.009]].forEach(function (l, i) {
+            g.fillStyle = l[0]; g.beginPath(); g.moveTo(0, 720);
+            for (var x = 0; x <= 1280; x += 20) g.lineTo(x, l[1] - 60 * Math.sin(x * l[2] + t * (i + 1) * 0.3 + i));
+            g.lineTo(1280, 720); g.fill();
+        });
+        g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(40, 530, 260, 150);
+        g.fillStyle = '#fff'; g.font = 'bold 34px system-ui'; g.fillText('XE_Demo', 60, 585); g.font = '24px system-ui'; g.fillText('chill build night', 60, 625);
+        return new Promise(function (r) { c.toBlob(function (b) { b.arrayBuffer().then(r); }, 'image/jpeg', 0.85); });
+    }
+
+    var CHATTERS = [['pixelpanda', '#4FC3F7', 'premium/1'], ['luna_builds', '#FF80AB', 'vip/1'], ['GG_Gary', '#AED581', ''], ['mod_mira', '#FFB74D', 'moderator/1'],
+        ['NightOwlNate', '#B39DDB', 'turbo/1'], ['cozycactus', '#80CBC4', ''], ['ByteSizedBen', '#FFD54F', 'premium/1'], ['sunny_sky', '#F48FB1', '']];
+    var LINES = ['that sunset build is so clean', 'Kappa', 'LUL the creeper timing', 'first time catching you live, love the vibes',
+        'how long did the castle take?', 'EZ', 'chat is so wholesome tonight <3', 'can we get a tour after this?', 'Clap Clap',
+        '@XE_Demo the lighting looks amazing', 'drop the seed pls', 'peepoHappy', 'I just got here, what are we building?', 'W stream'];
+    var EMOTE_IDS = { 'Kappa': '25', 'LUL': '425618', '<3': '9' };
+    var n = 0;
+    function ircLine() {
+        var c = CHATTERS[n % CHATTERS.length], text = LINES[n % LINES.length], id = 'demo' + n, uid = 1000 + (n % CHATTERS.length);
+        var em = [], m;
+        Object.keys(EMOTE_IDS).forEach(function (k) { var i = text.indexOf(k); if (i >= 0) em.push(EMOTE_IDS[k] + ':' + i + '-' + (i + k.length - 1)); });
+        var tags = 'badges=' + c[2] + ';color=' + c[1] + ';display-name=' + c[0] + ';emotes=' + em.join('/') + ';id=' + id +
+            ';tmi-sent-ts=' + Date.now() + ';user-id=' + uid + (n === 3 ? ';first-msg=1' : ';first-msg=0');
+        n++;
+        return '@' + tags + ' :' + c[0].toLowerCase() + '!x@x PRIVMSG #xe_demo :' + text;
+    }
+    var SUB = '@badges=;color=#9146FF;display-name=StarStreamer;login=starstreamer;msg-id=resub;msg-param-cumulative-months=14;msg-param-sub-plan=1000;' +
+        'system-msg=StarStreamer\\ssubscribed\\sat\\sTier\\s1.\\sThey\'ve\\ssubscribed\\sfor\\s14\\smonths!;tmi-sent-ts=' + Date.now() + ';user-id=999 :tmi.twitch.tv USERNOTICE #xe_demo :14 months already, love this community';
+
+    var prelude = function () {
+        var stream = { title: 'Chill build night - sunset castle', game: { displayName: 'Minecraft' }, viewersCount: 1284, createdAt: new Date(Date.now() - 2.4 * 3600e3).toISOString() };
+        var avatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9146FF"/><stop offset="1" stop-color="#FF6FB5"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><text x="50" y="64" font-size="42" font-family="system-ui" font-weight="800" text-anchor="middle" fill="#fff">XE</text></svg>');
+        var realFetch = window.fetch;
+        window.fetch = function (url, opts) {
+            url = String(url);
+            function json(o) { return Promise.resolve(new Response(JSON.stringify(o), { headers: { 'Content-Type': 'application/json' } })); }
+            if (url.indexOf('api.ivr.fi/v2/twitch/user') >= 0) return json([{ id: '424242', login: 'xe_demo', displayName: 'XE_Demo', logo: avatar, roles: { isPartner: true }, followers: 12500, stream: stream }]);
+            if (url.indexOf('api.ivr.fi/v2/twitch/badges/channel') >= 0) return json([]);
+            if (url.indexOf('recent-messages') >= 0) return json({ messages: [] });
+            if (url.indexOf('7tv.io/v3/users/twitch/') >= 0 || url.indexOf('betterttv') >= 0 || url.indexOf('frankerfacez') >= 0) return Promise.resolve(new Response('{}', { status: 404 }));
+            return realFetch.apply(this, arguments);
+        };
+        window.WebSocket = function (url) {
+            var self = this; this.readyState = 0; this.binaryType = 'blob';
+            setTimeout(function () { self.readyState = 1; self.onopen && self.onopen({}); }, 20);
+        };
+        window.WebSocket.OPEN = 1;
+        window.WebSocket.prototype.close = function () { this.readyState = 3; clearInterval(this._t); };
+        window.WebSocket.prototype.send = function (d) {
+            var self = this, m; try { m = JSON.parse(d); } catch (e) { return; }
+            var emit = function (data) { self.onmessage && self.onmessage({ data: data }); };
+            if (m.type === 'irc') {
+                for (var i = 0; i < 9; i++) emit(parent.ircLine());
+                emit(parent.SUB);
+                for (var j = 0; j < 3; j++) emit(parent.ircLine());
+                this._t = setInterval(function () { emit(parent.ircLine()); }, 2500);
+            }
+            if (m.type === 'preview') {
+                var t0 = Date.now();
+                this._t = setInterval(function () {
+                    var t = (Date.now() - t0) / 1000;
+                    parent.frame(t).then(function (jpg) {
+                        var buf = new Uint8Array(9 + jpg.byteLength); buf[0] = 1;
+                        new DataView(buf.buffer).setFloat64(1, t, true); buf.set(new Uint8Array(jpg), 9);
+                        emit(buf.buffer);
+                    });
+                    if (Math.round(t * 10) % 20 === 0) emit(JSON.stringify({ type: 'pvlat', s: 1.8 }));
+                }, 100);
+            }
+        };
+    };
+
+    var f = document.getElementById('f');
+    var local = { preview: view !== 'chat' && view !== 'menu', pvh: 50, theater: view === 'theater', acc: { chat: true } };
+    fetch('../widgets/xe-chat/index.html').then(function (r) { return r.text(); }).then(function (html) {
+        var pre = '<base href="../widgets/xe-chat/"><script>localStorage.setItem("xechat.local", ' + JSON.stringify(JSON.stringify(local)) + ');' +
+            'let icueEvents = null; let iCUE_initialized = false; var channel = "xe_demo", followPlaying = false, transparency = 85, textScale = 130, headerScale = 140, accentColor = "#9146FF";' +
+            '(' + prelude.toString() + ')();<\/script>';
+        f.srcdoc = html.replace('<head>', '<head>' + pre);
+        f.onload = function () {
+            var w = f.contentWindow;
+            setTimeout(function () { w.eval('iCUE_initialized = true; icueEvents && icueEvents.onICUEInitialized()'); }, 50);
+            if (view === 'menu') setTimeout(function () { w.document.getElementById('qbtn').click(); }, 1500);
+        };
+    });
+</script>

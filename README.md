@@ -15,6 +15,21 @@ A vibe-coded fork by **Tkalva**: XE Chat started as a rework of the Lumo chat wi
 | **XE Chat** | Twitch chat with 7TV / BTTV / FFZ emotes, 7TV name paints and badges, stream info, chatting and moderation once you sign in, your followed channels (live first), and a live stream preview with sound and a theater view. |
 | **XE Visualizer** | Audio visualizer with the current song or video, album art, playback controls and themes. Works with Spotify, YouTube, Twitch and anything else Windows shows as "now playing". |
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/xe-chat-chat.png" width="49%" alt="XE Chat: chat with 7TV emotes, badges and a sub alert">
+  <img src="docs/xe-chat-preview.png" width="49%" alt="XE Chat: live stream preview above chat">
+</p>
+<p align="center">
+  <img src="docs/xe-chat-theater.png" width="49%" alt="XE Chat: theater view with chat beside the stream">
+  <img src="docs/xe-chat-menu.png" width="49%" alt="XE Chat: on-widget settings menu">
+</p>
+<p align="center">
+  <img src="docs/xe-visualizer.png" width="70%" alt="XE Visualizer: now playing with album art and audio bars">
+</p>
+<p align="center"><sub>XE Chat at the Edge's 841×697 size: chat · stream preview · theater view · settings menu. XE Visualizer at 840×344. Demo data, with made-up chatters and stream.</sub></p>
+
 Both widgets talk to a small companion server that runs in your system tray. It relays Twitch chat (iCUE's browser can't reach Twitch directly), reads what's playing, captures audio for the visualizer and decodes the stream preview.
 
 ## Install
@@ -103,6 +118,9 @@ By default the visualizer follows SteelSeries Sonar's *Media* and *Aux* channels
 - **Server port** — both widgets use port `16329`. If you change it, change it in both widgets' settings.
 
 ## Build it yourself
+
+Want to see the widgets without installing anything? Run `python -m http.server` in this folder and open `http://localhost:8000/tools/demo.html` (chat, with `?view=preview`, `theater` or `menu`) or `/tools/demo-visualizer.html`. They use made-up data.
+
 
 Everything in the release is built from this repo. With Python 3.10+ installed, run `build-release.ps1`; it produces the server exe (via PyInstaller) and both `.icuewidget` files in `dist\`, and prints their SHA256 hashes. To run the server from source instead: `pip install -r server/requirements.txt`, then `pythonw server/NowPlayingServer.pyw`.
 

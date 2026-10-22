@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>XE Visualizer demo</title>
+<style>
+    body { margin: 0; background: #0b0b10; }
+    iframe { display: block; border: 0; }
+</style>
+<iframe id="f" width="840" height="344"></iframe>
+<script>
+    // XE Visualizer with a made-up song, album art and moving bars (no server, never shows real playback).
+    // Serve the repo root over http and open /tools/demo-visualizer.html
+    function albumArt() {
+        var c = document.createElement('canvas'); c.width = c.height = 400; var g = c.getContext('2d');
+        var bg = g.createLinearGradient(0, 0, 400, 400); bg.addColorStop(0, '#ff5f9e'); bg.addColorStop(0.5, '#7b3fe4'); bg.addColorStop(1, '#1b1446');
+        g.fillStyle = bg; g.fillRect(0, 0, 400, 400);
+        for (var i = 0; i < 14; i++) { g.strokeStyle = 'rgba(255,255,255,' + (0.05 + i * 0.02) + ')'; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 260 + i * 10); g.lineTo(400, 230 + i * 12); g.stroke(); }
+        g.fillStyle = 'rgba(255,230,180,0.95)'; g.beginPath(); g.arc(200, 170, 70, 0, 7); g.fill();
+        g.fillStyle = '#fff'; g.font = 'bold 30px system-ui'; g.textAlign = 'center'; g.fillText('NEON COAST', 200, 370);
+        return c.toDataURL('image/jpeg', 0.9);
+    }
+    var prelude = function () {
+        window.WebSocket = function () {
+            var self = this; this.readyState = 0;
+            setTimeout(function () {
+                self.readyState = 1; self.onopen && self.onopen({});
+                var emit = function (d) { self.onmessage && self.onmessage({ data: d }); };
+                emit(JSON.stringify({ type: 'media', title: 'Midnight Drive', artist: 'Neon Coast', album: 'Afterglow', playing: true, pos: 72, dur: 214, live: false, platform: 'spotify' }));
+                emit(JSON.stringify({ type: 'art', artUrl: parent.albumArt() }));
+                var t = 0;
+                self._t = setInterval(function () {
+                    t += 0.05; var b = new Uint8Array(96);
+                    for (var i = 0; i < 96; i++) {
+                        var env = Math.max(0, 1 - i / 110), beat = 0.6 + 0.4 * Math.abs(Math.sin(t * 3));
+                        b[i] = Math.min(255, 255 * env * beat * (0.55 + 0.45 * Math.sin(i * 0.35 + t * 4) * Math.cos(i * 0.11 - t * 2.3)));
+                    }
+                    emit('{"b":"' + btoa(String.fromCharCode.apply(null, b)) + '"}');
+                }, 33);
+            }, 20);
+        };
+        window.WebSocket.OPEN = 1;
+        window.WebSocket.prototype.send = function () {};
+        window.WebSocket.prototype.close = function () { clearInterval(this._t); };
+    };
+    var f = document.getElementById('f');
+    fetch('../widgets/xe-visualizer/index.html').then(function (r) { return r.text(); }).then(function (html) {
+        var pre = '<base href="../widgets/xe-visualizer/"><script>let icueEvents = null; let iCUE_initialized = false;' +
+            'var accentColor = "#9146FF", transparency = 85;(' + prelude.toString() + ')();<\/script>';
+        f.srcdoc = html.replace('<head>', '<head>' + pre);
+        f.onload = function () {
+            setTimeout(function () { f.contentWindow.eval('iCUE_initialized = true; icueEvents && icueEvents.onICUEInitialized && icueEvents.onICUEInitialized()'); }, 50);
+        };
+    });
+</script>
