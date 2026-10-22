@@ -1,0 +1,37 @@
+{
+  "en": {
+    "translation": {
+      "Accent Color": "Accent Color",
+      "Account and Moderation": "Account and Moderation",
+      "Aurora": "Aurora",
+      "Background Color": "Background Color",
+      "Background Opacity": "Background Opacity",
+      "Badges": "Badges",
+      "Channel": "Channel",
+      "Chat": "Chat",
+      "Chat Box": "Chat Box",
+      "Custom Colors": "Custom Colors",
+      "Ember": "Ember",
+      "Follow Twitch Stream Playing": "Follow Twitch Stream Playing",
+      "Hide !commands": "Hide !commands",
+      "Hide Bots": "Hide Bots",
+      "Highlight Words (comma separated)": "Highlight Words (comma separated)",
+      "Messages Kept": "Messages Kept",
+      "Moderation Tools": "Moderation Tools",
+      "Mono": "Mono",
+      "Neon": "Neon",
+      "Ocean": "Ocean",
+      "Stream Info Header": "Stream Info Header",
+      "Sunset": "Sunset",
+      "Synthwave": "Synthwave",
+      "Text Color": "Text Color",
+      "Text Size": "Text Size",
+      "Theme": "Theme",
+      "Timestamps": "Timestamps",
+      "Twitch Client ID": "Twitch Client ID",
+      "Visualizer Server Port": "Visualizer Server Port",
+      "Widget Personalization": "Widget Personalization",
+      "XE Chat": "XE Chat"
+    }
+  }
+}

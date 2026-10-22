@@ -1,0 +1,2171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-icue-framework-version" content="1.0.1">
+    <title>tr('XE Chat')</title>
+    <link rel="icon" type="image/svg+xml" href="resources/icon.svg">
+    <meta name="x-icue-restrictions" data-restrictions='[{"device":"dashboard_lcd"}]'>
+
+    <!-- Only combobox / slider / switch / color / textfield: iCUE's tab-buttons editor throws errors.
+         Never put an ampersand character in this section: iCUE's validator rejects it and silently skips the widget. -->
+    <!-- Chat -->
+    <meta name="x-icue-property" content="channel" data-label="tr('Channel')" data-type="textfield" data-default="''">
+    <meta name="x-icue-property" content="followPlaying" data-label="tr('Follow Twitch Stream Playing')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="showHeader" data-label="tr('Stream Info Header')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="showBadges" data-label="tr('Badges')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="showTimestamps" data-label="tr('Timestamps')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="bubbles" data-label="tr('Message Bubbles')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="hideCommands" data-label="tr('Hide !commands')" data-type="switch" data-default="false">
+    <meta name="x-icue-property" content="hideBots" data-label="tr('Hide Bots')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="highlightWords" data-label="tr('Highlight Words (comma separated)')" data-type="textfield" data-default="''">
+    <meta name="x-icue-property" content="messageLimit" data-label="tr('Messages Kept')" data-type="slider"
+        data-default="150" data-min="50" data-max="400" data-step="50">
+
+    <!-- Account / moderation -->
+    <meta name="x-icue-property" content="clientId" data-label="tr('Twitch Client ID')" data-type="textfield" data-default="''">
+    <meta name="x-icue-property" content="showModBar" data-label="tr('Moderation Tools')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="chatBox" data-label="tr('Chat Box')" data-type="switch" data-default="true">
+
+    <!-- Personalization -->
+    <meta name="x-icue-property" content="theme" data-label="tr('Theme')" data-type="combobox"
+        data-values="[{'key':'custom','value':tr('Custom Colors')},{'key':'neon','value':tr('Neon')},{'key':'synthwave','value':tr('Synthwave')},{'key':'sunset','value':tr('Sunset')},{'key':'ocean','value':tr('Ocean')},{'key':'aurora','value':tr('Aurora')},{'key':'ember','value':tr('Ember')},{'key':'mono','value':tr('Mono')}]"
+        data-default="'custom'">
+    <meta name="x-icue-property" content="accentColor" data-label="tr('Accent Color')" data-type="color" data-default="'#9147FF'">
+    <meta name="x-icue-property" content="textColor" data-label="tr('Text Color')" data-type="color" data-default="'#EDEDF0'">
+    <meta name="x-icue-property" content="backgroundColor" data-label="tr('Background Color')" data-type="color" data-default="'#0B0B0D'">
+    <meta name="x-icue-property" content="transparency" data-label="tr('Background Opacity')" data-type="slider"
+        data-default="100" data-min="0" data-max="100" data-step="5">
+    <meta name="x-icue-property" content="textScale" data-label="tr('Text Size')" data-type="slider"
+        data-default="100" data-min="70" data-max="200" data-step="5">
+    <meta name="x-icue-property" content="headerScale" data-label="tr('Stream Info Size')" data-type="slider"
+        data-default="150" data-min="80" data-max="220" data-step="5">
+    <meta name="x-icue-property" content="serverPort" data-label="tr('Visualizer Server Port')" data-type="textfield" data-default="'16329'">
+
+    <script type="application/json" id="x-icue-groups">
+    [
+        { "title": "tr('Chat')", "properties": ["channel", "followPlaying", "showHeader", "showBadges", "showTimestamps", "bubbles", "hideCommands", "hideBots", "highlightWords", "messageLimit"] },
+        { "title": "tr('Account and Moderation')", "properties": ["clientId", "chatBox", "showModBar"] },
+        { "title": "tr('Widget Personalization')", "properties": ["theme", "accentColor", "textColor", "backgroundColor", "transparency", "textScale", "headerScale", "serverPort"] }
+    ]
+    </script>
+
+    <style>
+        /* Inter: Copyright 2016 The Inter Project Authors, SIL Open Font License 1.1 (fonts/LICENSE.txt) */
+        @font-face { font-family: 'Inter'; src: url('fonts/InterVariable.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
+
+        /* Palette: set from settings in JS (applyColors). Panels are OPAQUE on purpose:
+           iCUE's compositor has been seen to pile up translucent layers on the Edge. */
+        :root {
+            --bg-rgb: 11, 11, 13; --bg-a: 1;
+            --canvas: #0B0B0D; --surface: #111114; --raised: #18181C; --overlay: #151518; --field: #16161A; --hover: #232328;
+            --line: rgba(255, 255, 255, 0.07); --line-2: rgba(255, 255, 255, 0.11);
+            --text: #EDEDF0; --text-2: #A3A3AD; --text-3: #6C6C77;
+            --accent: #9147FF; --accent-hi: #BF94FF; --accent-soft: rgba(145, 71, 255, 0.14); --accent-line: rgba(145, 71, 255, 0.55);
+            --on-accent: #fff;
+            --live: #FF4F5E; --gold: #E8C26A; --bits: #2BC4B4;
+            --fs: 20px;        /* chat text size (Text Size setting x quick-panel zoom) */
+            --gut: 50px;       /* timestamp gutter */
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        body {
+            position: relative; display: flex; flex-direction: column;
+            background: rgba(var(--bg-rgb), var(--bg-a));
+            color: var(--text); font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-feature-settings: "cv05", "cv08";
+            -webkit-font-smoothing: antialiased; user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+        button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; touch-action: manipulation; }
+        button:active { background-color: var(--hover); }   /* pressed state: color only, no transform/filter */
+        svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+        input { font: inherit; color: inherit; background: none; border: 0; outline: none; min-width: 0; user-select: text; }
+        .hidden { display: none !important; }
+
+        /* ═══ Header ═══ */
+        #hdr { flex: none; height: 60px; display: flex; align-items: center; padding: 0 8px 0 16px; border-bottom: 1px solid var(--line); background: var(--canvas); }
+        .no-header #hdr { display: none; }
+        #avatar { width: 38px; height: 38px; border-radius: 50%; flex: none; object-fit: cover; background: var(--raised); box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--line-2); }
+        .is-live #avatar { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--live); }
+        #meta { flex: 1; min-width: 0; margin-left: 14px; }
+        #l1 { display: flex; align-items: center; gap: 7px; height: 22px; white-space: nowrap; overflow: hidden; }
+        #chname { font-size: 17px; font-weight: 650; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; }
+        #verified { width: 15px; height: 15px; flex: none; }
+        #livetag { display: none; align-items: center; gap: 6px; margin-left: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; color: var(--live); }
+        #livetag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--live); }
+        .is-live #livetag { display: inline-flex; }
+        #modes { display: flex; gap: 5px; margin-left: 6px; }
+        .mchip { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 99px; color: var(--accent-hi); background: var(--accent-soft); }
+        #l2 { margin-top: 2px; font-size: 13px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #game { color: var(--text-2); font-weight: 550; }
+        #game:not(:empty) + #gdot { display: inline; }
+        #gdot { display: none; margin: 0 7px; }
+        #stats { display: flex; gap: 22px; margin-left: 16px; }
+        #stats div { display: flex; flex-direction: column; }
+        #stats small { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+        #stats b { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; margin-top: 1px; }
+        .vr { width: 1px; height: 28px; background: var(--line-2); margin: 0 6px 0 16px; flex: none; }
+        .ib { width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center; color: var(--text-2); flex: none; }
+        .ib.on { color: var(--accent-hi); }
+        #eyebtn { display: none; }
+        .is-live #eyebtn { display: grid; }
+        /* Stream preview (eye button): muted 360p video above chat */
+        #preview { display: none; position: relative; flex: none; align-self: center; width: calc(100% - 20px); margin: 0 0 6px; cursor: pointer; border-radius: 16px; overflow: hidden;
+            background: #000; border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
+        body.pv-on.is-live #preview { display: block; }
+        #pv { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #pv:not(.live) { visibility: hidden; }
+        #pv-lat {  padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums;
+            color: #fff; background: rgba(0, 0, 0, 0.65); }
+        #pv-lat:empty { display: none; }
+        #pvctl { display: none; position: absolute; z-index: 2; right: 8px; bottom: 8px; align-items: center; gap: 6px; max-width: calc(100% - 16px); flex-wrap: wrap; justify-content: flex-end; }
+        body.pv-overlap:not(.theater) #pvctl { bottom: auto; top: 8px; }   /* chat covers the bottom */
+        body.theater #pvctl { right: auto; left: 10px; bottom: 10px; justify-content: flex-start; }
+        body.pv-on.is-live #pvctl { display: flex; transition: opacity 0.3s; }
+        body.pv-idle #pvctl { opacity: 0; pointer-events: none; }
+        #pv-vol { display: none; width: 110px; accent-color: var(--accent); }
+        #pv-sz { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px 0 10px; border-radius: 99px; background: rgba(0, 0, 0, 0.65); color: #fff; }
+        #pv-sz svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+        #pv-size { width: 120px; accent-color: var(--accent); }
+        .theater #pv-sz { display: none; }
+        .pv-sound #pv-vol { display: block; }
+        #pv-full { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, 0.65); color: #fff; }
+        #pv-full svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .theater #pv-full { background: var(--accent); color: var(--on-accent); }
+
+        /* Theater view: the stream fills the widget and chat floats over it */
+        body.theater.pv-on.is-live #preview { position: absolute; inset: 0 34% 0 0; width: auto !important; height: auto !important; margin: 0; border: 0; border-radius: 0; z-index: 0; cursor: default; }
+        body.theater.pv-on.is-live #pv { object-fit: contain; }   /* whole picture, beside the chat */
+        body.theater.pv-on.is-live #hdr { display: none; }
+        body.pv-full.pv-on.is-live:not(.theater) #wrap { display: none; }
+        /* With the preview showing, chat uses a fixed text size so the message count per level holds;
+           the Text Size setting applies when the preview is hidden */
+        body.pv-on.is-live:not(.theater) #chat { --fs: 18px; }
+        body.pv-full.pv-on.is-live:not(.theater) #preview { margin: auto; }   /* centred in the space below the stream info */
+        body.pv-big.pv-on.is-live:not(.theater) #composer, body.pv-big.pv-on.is-live:not(.theater) #suggest { display: none; }
+
+        /* Theater chat: a light overlay like Twitch mobile fullscreen, not the regular chat */
+        body.theater.pv-on.is-live #wrap { bottom: 0; width: 34%; border-left: 0;
+            background: transparent; -webkit-mask-image: linear-gradient(transparent, #000 25%); mask-image: linear-gradient(transparent, #000 25%); }
+        body.theater.pv-on.is-live #composer, body.theater.pv-on.is-live #suggest { display: none; }
+        body.theater.pv-on.is-live .r { grid-template-columns: minmax(0, 1fr) !important; margin: 0 !important; padding: 2px 10px 2px 14px !important;
+            background: none !important; border: 0 !important; box-shadow: none !important; font-size: 0.82em; }
+        body.theater.pv-on.is-live .r > .t { display: none; }
+        body.theater.pv-on.is-live .r .rp-l { display: none; }
+        body.theater.pv-on.is-live .ev { margin: 4px 8px; padding: 6px 10px; font-size: 0.8em; grid-template-columns: minmax(0, 1fr); }
+        body.theater.pv-on.is-live #chat { padding-bottom: 12px; text-shadow: none; }
+
+        /* ═══ Preview redesign ═══ */
+        #preview { border-radius: 18px; border: 0; background: #000;
+            box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), 0 12px 30px -12px rgba(0, 0, 0, 0.9), 0 0 30px -14px var(--accent); }
+        #preview::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 70px; pointer-events: none;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.6)); transition: opacity 0.3s; }
+        body.pv-idle #preview::after { opacity: 0; }
+        #pv-badge { position: absolute; left: 10px; top: 10px; z-index: 2; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px;
+            border-radius: 7px; background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 11.5px; font-weight: 750; letter-spacing: 0.06em; }
+        #pv-badge i { width: 7px; height: 7px; border-radius: 50%; background: #FF4F5E; box-shadow: 0 0 6px #FF4F5E; }
+        #pv-badge b { font-weight: 600; letter-spacing: 0; opacity: 0.85; }
+        #pv-badge b:not(:empty)::before { content: "·"; margin-right: 6px; opacity: 0.6; }
+        /* one control bar */
+        #pvctl { gap: 2px; padding: 4px; border-radius: 99px; background: rgba(12, 12, 16, 0.78); border: 1px solid rgba(255, 255, 255, 0.08); right: 10px; bottom: 10px; }
+        #pvctl button { width: 36px; height: 36px; background: transparent !important; color: #fff !important; }
+        .pv-sound #pv-snd { color: var(--accent) !important; }
+        .theater #pv-full { color: var(--accent) !important; }
+        #pv-lat { background: none; padding: 0 8px; opacity: 0.85; }
+        #pv-vol { width: 90px; margin: 0 6px; }
+        #pv-dots { display: flex; gap: 4px; padding: 0 8px 0 10px; }
+        #pv-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); }
+        #pv-dots i.on { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+        body.theater #pv-dots { display: none; }
+        /* chat under the preview: compact lines, like Twitch */
+        body.pv-on.is-live:not(.theater) #wrap { -webkit-mask-image: linear-gradient(transparent, #000 18px); mask-image: linear-gradient(transparent, #000 18px); }
+        body.pv-on.is-live:not(.theater) .r { grid-template-columns: minmax(0, 1fr) !important; margin: 0 10px !important; padding: 4px 10px !important;
+            border-radius: 10px; background: none !important; border: 0 !important; box-shadow: none !important; line-height: 1.4; }
+        body.pv-on.is-live:not(.theater) .r:nth-child(even) { background: rgba(255, 255, 255, 0.035) !important; }
+        body.pv-on.is-live:not(.theater) .r > .t, body.pv-on.is-live:not(.theater) .r .rp-l { display: none; }
+        body.pv-on.is-live:not(.theater) .r.hl { background: color-mix(in srgb, var(--accent) 20%, transparent) !important; }
+        body.pv-on.is-live:not(.theater) .ev { margin: 4px 10px; padding: 7px 12px; grid-template-columns: minmax(0, 1fr); }
+
+        /* ═══ v3 overhaul ═══ */
+        body {
+            background:
+                radial-gradient(90% 55% at 0% 0%, color-mix(in srgb, var(--accent) calc(var(--bg-a) * 20%), transparent), transparent 70%),
+                radial-gradient(70% 45% at 100% 100%, color-mix(in srgb, var(--accent) calc(var(--bg-a) * 10%), transparent), transparent 70%),
+                rgba(var(--bg-rgb), var(--bg-a));
+        }
+        /* header: the earlier layout, with the name fix (mode tags no longer squeeze the channel name) */
+        /* name row: LIVE always stays beside the name; mode tags give way first, then the name truncates */
+        #chname { flex: 0 1 auto; min-width: 2.5em; }
+        #verified, #livetag { flex: none; }
+        .long-name.is-live #livetag { display: none; }
+        #hdr { position: relative; }
+        .long-name.is-live #hdr::after { content: "LIVE"; position: absolute; left: 14px; top: 48px; padding: 1px 6px; border-radius: 5px; background: var(--live); color: #fff;
+            font-size: 10px; font-weight: 800; letter-spacing: 0.08em; box-shadow: 0 0 0 2px rgba(var(--bg-rgb), 1); pointer-events: none; }
+        #modes { display: none; }   /* chat-mode tags crowded out the name */
+        .mchip { white-space: nowrap; }
+        #stats #st-rate { display: none; }
+        /* viewers and uptime: separate boxes as before, a little tighter so the name and LIVE fit */
+        #stats { gap: 6px; }
+        #stats div { padding: 0 8px; }
+        #stats small { font-size: 9.5px; }
+        #stats b { font-size: 15px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
+            margin-top: 2px; padding: 2px 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); }
+        #stats div { align-items: center; justify-content: center; text-align: center; }
+        #stats b::before { content: ""; width: 13px; height: 13px; flex: none; background: var(--text-3);
+            -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+        #stats div:first-child b::before { background: var(--live); --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-8 9c0-4.4 3.6-7 8-7s8 2.6 8 7z'/%3E%3C/svg%3E"); }
+        #stats div:nth-child(2) b::before { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.4l3.5 2.1-1 1.7L11 13.5V7z'/%3E%3C/svg%3E"); }
+        .vr { display: none; }
+        /* narrow widget (e.g. iCUE's own small preview of it): only the essentials up top */
+        @media (max-width: 560px) { #stats, #eyebtn, #modbtn, .vr { display: none !important; } }
+        /* iCUE's settings page shows a small preview copy of the widget: say so */
+        #icue-note { display: none; flex: none; margin: 4px 8px; padding: 6px 10px; border-radius: 10px; font-size: 11px; line-height: 1.35;
+            color: #1a1200; background: #FFD34D; font-weight: 600; }
+        @media (max-width: 420px) { #icue-note { display: block; } }
+        /* sub / gift / raid / announcement cards */
+        .ev { padding: 12px 16px 12px 4px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--ev-hi, var(--accent)) 45%, transparent);
+            background: linear-gradient(120deg, color-mix(in srgb, var(--ev-hi, var(--accent)) 26%, rgba(var(--bg-rgb), 0.9)), color-mix(in srgb, var(--ev-hi, var(--accent)) 8%, rgba(var(--bg-rgb), 0.6)) 75%);
+            box-shadow: 0 10px 24px -14px var(--ev-hi, var(--accent)); }
+        .ev-ic { width: calc(var(--fs) * 1.7); height: calc(var(--fs) * 1.7); border-radius: 12px; background: var(--ev-hi, var(--accent)); color: #0B0B0D;
+            box-shadow: 0 0 16px -4px var(--ev-hi, var(--accent)); }
+        .ev-ic svg { width: 55%; height: 55%; }
+        .ev-h { font-size: calc(var(--fs) * 0.82); line-height: 1.4; color: var(--text); flex-wrap: wrap; }
+        .ev-h b { color: var(--ev-hi, var(--accent-hi)); font-weight: 750; }
+        .ev-meta { padding: 2px 9px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); color: var(--text-2); font-size: calc(var(--fs) * 0.5); }
+        /* theater: video and chat side by side, no overlap */
+        body.theater.pv-on.is-live #wrap { width: 34%; }
+        body.theater.pv-on.is-live #chat { --fs: 16px; }   /* compact, independent of Text Size */
+        body.theater.pv-on.is-live #preview { right: 34%; }
+        /* chat box */
+        #field { height: 50px; border-radius: 99px; padding-left: 10px; }
+        #field.focus { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 22px -8px var(--accent); }
+        #send { height: 50px; border-radius: 99px; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff));
+            box-shadow: 0 6px 16px -8px var(--accent); }
+        #emobtn { border-radius: 50%; }
+
+        /* compact special messages: "First-time chatter" becomes a small tag beside the name, reply lines are tighter */
+        .ft-l { float: left; margin: calc(var(--fs) * 0.22) 8px 0 0; padding: 0 8px; border-radius: 99px; background: rgba(232, 194, 106, 0.16);
+            font-size: calc(var(--fs) * 0.55); line-height: 1.9; }
+        .ft > .t { padding-top: 0; }
+        .rp-l { font-size: calc(var(--fs) * 0.68); line-height: 1.35; }
+        .rp > .t { padding-top: calc(var(--fs) * 0.95); }
+        /* ═══ Menu polish ═══ */
+        .no-first .ft { background: none; } .no-first .ft-l { display: none; }
+        .no-lat #pv-lat { display: none; }
+        .ch-pick { margin-top: 14px; padding: 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+            background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, var(--raised)), var(--raised) 70%); }
+        .ch-h { margin: 0 2px 8px; font-size: 15.5px; font-weight: 750; }
+        .set-h { margin: 18px 2px 0; }
+        #meta { cursor: pointer; }
+        .acc { margin-top: 10px; border-radius: 16px; border: 1px solid var(--line); background: color-mix(in srgb, var(--raised) 70%, transparent); overflow: hidden; }
+        .acc.open { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+        .acc-h { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 14px; text-align: left; color: var(--text); }
+        .acc-i { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; flex: none;
+            background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-hi); }
+        .acc-i svg { width: 18px; height: 18px; fill: currentColor; }
+        .acc.open .acc-i { background: var(--accent); color: var(--on-accent); }
+        .acc-t { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .acc-t b { font-size: 15.5px; font-weight: 700; }
+        .acc-t small { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .acc-c { width: 20px; height: 20px; fill: none; stroke: var(--text-3); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; flex: none; }
+        .acc.open .acc-c { transform: rotate(180deg); stroke: var(--accent); }
+        .acc-b { padding: 2px 14px 14px; border-top: 1px solid var(--line); }
+        .acc-b > .row { margin-top: 8px; }
+        .acc-sub { margin: 14px 2px 0; font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+        .acc-b .follow-list { margin-top: 12px; }
+        .sheet { border-radius: 22px; border-color: color-mix(in srgb, var(--accent) 35%, var(--line-2));
+            background: radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--accent) 16%, var(--overlay)), var(--overlay) 60%);
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 24px 60px -10px rgba(0, 0, 0, 0.9), 0 0 40px -12px color-mix(in srgb, var(--accent) 60%, transparent); }
+        .sheet::before { background: color-mix(in srgb, var(--accent) 60%, var(--line-2)); }
+        .sh-title { font-size: 20px; font-weight: 750; background: linear-gradient(90deg, var(--text), color-mix(in srgb, var(--accent) 70%, var(--text)));
+            -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .sh-x { border-radius: 50%; border: 1px solid var(--line); }
+        .sh-sec { display: flex; align-items: center; gap: 8px; margin: 20px 2px 8px; color: var(--text-2); }
+        .sh-sec::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex: none; }
+        .sh-sec::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-2), transparent); }
+        .sh-sec + .row, .sh-sec + .follow-list { padding: 10px; border-radius: 16px; border: 1px solid var(--line);
+            background: color-mix(in srgb, var(--raised) 70%, transparent); }
+        .chip { border-radius: 99px; transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s; }
+        .chip:active { background: var(--hover); }
+        .chip.on { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff));
+            box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent) 80%, transparent); border-color: transparent; }
+        .chip.fl-live { border-color: color-mix(in srgb, var(--live) 35%, var(--line)); }
+        .fl-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 25%, transparent), 0 0 8px var(--live); }
+        body.pv-overlap.pv-on.is-live:not(.theater) #wrap { position: relative; z-index: 3; background: linear-gradient(transparent, rgba(0, 0, 0, 0.55) 40%); }
+        body.pv-overlap.pv-on.is-live:not(.theater) #chat { text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, 0.8); }
+        body.pv-overlap.pv-on.is-live:not(.theater).bubbles .r[data-login] { background: rgba(0, 0, 0, 0.45); }   /* like Twitch mobile fullscreen: just video + chat */
+        /* chat becomes a narrow see-through column on the right of the stream */
+        body.theater.pv-on.is-live #wrap { position: absolute; z-index: 1; right: 0; width: 34%; top: 0; bottom: var(--th-bot, 60px);
+            background: rgba(0, 0, 0, 0.5); border-left: 1px solid rgba(255, 255, 255, 0.08); }
+        body.theater.pv-on.is-live #composer { position: absolute; z-index: 1; right: 0; bottom: 0; width: 34%; background: rgba(0, 0, 0, 0.5); border-left: 1px solid rgba(255, 255, 255, 0.08); }
+        body.theater.pv-on.is-live #suggest { position: absolute; z-index: 1; right: 0; width: 34%; bottom: var(--th-bot, 60px); background: rgba(0, 0, 0, 0.55); }
+        body.theater.pv-on.is-live .r { font-size: 0.9em; }
+        body.theater.pv-on.is-live #chat { text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, 0.8); }
+        body.theater.pv-on.is-live.bubbles .r[data-login] { background: rgba(0, 0, 0, 0.45); }
+        #pv-snd { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, 0.65); color: #fff; }
+        #pv-snd svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        #pv-snd path:first-child { fill: currentColor; }
+        #pv-snd #pv-wave, .pv-sound #pv-snd #pv-x { display: none; }
+        .pv-sound #pv-snd #pv-wave { display: inline; }
+        .pv-sound #pv-snd { background: var(--accent); color: var(--on-accent); }
+        #pv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); font-size: 13px; pointer-events: none; }
+        #modbtn { display: none; }
+        .is-mod.show-mod #modbtn { display: grid; }
+        @media (max-width: 560px) { #stats, .vr { display: none; } }
+
+        /* ═══ Chat ═══ */
+        #wrap { position: relative; flex: 1 1 auto; min-height: 0; }
+        #chat { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 6px 0 10px; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
+        #chat::-webkit-scrollbar { display: none; }
+        #chat img { -webkit-user-drag: none; pointer-events: none; }
+        .r { position: relative; display: grid; grid-template-columns: var(--gut) minmax(0, 1fr); padding: 2px 16px; }
+        .no-ts .r { grid-template-columns: minmax(0, 1fr); }
+        .no-ts .r > .t { display: none; }
+        .t { font-size: calc(var(--fs) * 0.78); line-height: calc(var(--fs) * 1.45); color: var(--text-3); font-variant-numeric: tabular-nums; }
+        .c { font-size: var(--fs); line-height: 1.45; letter-spacing: -0.011em; color: var(--text); overflow-wrap: anywhere; }
+        .n { font-weight: 640; margin-right: 7px; }
+        .n.act { margin-right: 6px; }
+        .bd { height: 0.9em; width: auto; vertical-align: -0.12em; margin-right: 4px; border-radius: 3px; }
+        .no-badges .bd { display: none; }
+        .e { height: calc(1.55em * var(--es, 1)); width: auto; vertical-align: middle; margin: -0.3em 1px -0.2em; }
+        .eo .e { height: calc(2.3em * var(--es, 1)); margin: 0.05em 1px; }
+        .act-text { font-style: italic; }
+        .at { font-weight: 600; color: var(--text); background: var(--field); padding: 0 4px; border-radius: 5px; }
+        .r.tapped { background: var(--hover); }
+
+        .sys .c { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--text-3); }
+        .sys .c b { color: var(--text-2); font-weight: 600; }
+        .sys .c::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+        .sys.mod .c { color: #E9858D; }
+
+        .rp-l { display: flex; align-items: center; gap: 6px; font-size: calc(var(--fs) * 0.8); line-height: 1.5; color: var(--text-3); white-space: nowrap; min-width: 0; }
+        .rp-l b { color: var(--text-2); font-weight: 550; }
+        .rp-l span { overflow: hidden; text-overflow: ellipsis; }
+        .rp-l svg.i { width: 1.1em; height: 1.1em; }
+        .rp > .t, .ft > .t { padding-top: calc(var(--fs) * 1.2); }
+
+        .hl, .ft, .bits-row { margin: 3px 8px; padding: 4px 8px; border-radius: 10px; }
+        .hl::before, .ft::before, .bits-row::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; }
+        .hl { background: var(--accent-soft); }
+        .hl::before { background: var(--accent); }
+        .hl .at { color: var(--accent-hi); background: none; padding: 0; }
+        .ft { background: rgba(232, 194, 106, 0.07); }
+        .ft::before { background: var(--gold); }
+        .ft-l { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; line-height: 20px; color: var(--gold); }
+        .ft-l svg { width: 12px; height: 12px; fill: currentColor; }
+        .bits-row { background: rgba(43, 196, 180, 0.07); }
+        .bits-row::before { background: var(--bits); }
+        .bits { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; color: var(--bits); font-weight: 700; font-variant-numeric: tabular-nums; }
+        .bits svg { width: 0.9em; height: 0.9em; }
+        .del .c { opacity: 0.4; text-decoration: line-through; }
+        .hist { opacity: 0.6; }
+
+        .ev { position: relative; margin: 6px 12px; padding: 11px 14px 11px 3px; display: grid; grid-template-columns: var(--gut) minmax(0, 1fr);
+            border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(100deg, var(--ev-soft, var(--accent-soft)), transparent 55%), var(--surface); }
+        .ev-ic { width: 30px; height: 30px; margin-left: 10px; border-radius: 9px; display: grid; place-items: center; background: var(--ev-soft, var(--accent-soft)); color: var(--ev-hi, var(--accent-hi)); }
+        .ev-ic svg { width: 16px; height: 16px; fill: currentColor; }
+        .ev-h { display: flex; align-items: baseline; gap: 8px; font-size: 15px; line-height: 22px; color: var(--text-2); }
+        .ev-h b { color: var(--text); font-weight: 650; }
+        .ev-meta { margin-left: auto; flex: none; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+        .ev .c { margin-top: 3px; }
+        .ev-gift { --ev-soft: rgba(255, 92, 168, 0.15); --ev-hi: #FF8CC6; }
+        .ev-raid { --ev-soft: rgba(255, 138, 31, 0.15); --ev-hi: #FFB06B; }
+        .ev-ann { --ev-soft: rgba(43, 196, 180, 0.15); --ev-hi: #6FE0D3; }
+
+        .fadein { animation: fadein 0.18s ease-out both; }
+        @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        #empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--text-3); font-size: 15px; pointer-events: none; }
+        #more { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: none; height: 40px; padding: 0 18px; border-radius: 99px;
+            background: var(--accent); color: var(--on-accent); font-weight: 650; font-size: 14px; box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.7); }
+        #more:active { background: var(--accent); }
+        .paused #more { display: block; }
+
+        /* see-through background: shadow keeps chat readable over the wallpaper */
+        .see-through #chat { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.55); }
+
+        /* ═══ Suggestions (while typing) ═══ */
+        #suggest { flex: none; display: none; gap: 6px; padding: 6px 12px 0; overflow-x: auto; scrollbar-width: none; background: var(--canvas); }
+        #suggest.open { display: flex; }
+        .sg { flex: none; height: 40px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px 0 8px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line); font-size: 14px; font-weight: 550; color: var(--text); }
+        .sg img { height: 26px; width: auto; }
+        .sg.first { border-color: var(--accent-line); }
+
+        /* ═══ Composer ═══ */
+        #composer { flex: none; height: 56px; padding: 5px 12px 5px; display: flex; gap: 8px; border-top: 1px solid var(--line); background: var(--canvas); }
+        .no-input #composer, .no-input #suggest { display: none; }
+        #field { flex: 1; min-width: 0; height: 46px; display: flex; align-items: center; padding-left: 8px; border-radius: 13px; background: var(--field); border: 1px solid var(--line-2); }
+        #field.focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+        #me { width: 28px; height: 28px; border-radius: 50%; flex: none; object-fit: cover; background: var(--raised); display: grid; place-items: center; color: var(--text-3); }
+        #me svg { width: 16px; height: 16px; }
+        #input { flex: 1; height: 100%; margin-left: 12px; font-size: 17px; letter-spacing: -0.01em; }
+        #input::placeholder { color: var(--text-3); }
+        #emobtn { width: 44px; height: 44px; margin-right: 1px; border-radius: 12px; display: grid; place-items: center; color: var(--accent-hi); }
+        #emobtn.on { background: var(--accent-soft); }
+        #emobtn svg.i { width: 22px; height: 22px; }
+        #send { width: 76px; height: 46px; flex: none; border-radius: 13px; background: var(--accent); color: var(--on-accent); font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+        #send:active { background: var(--accent-line); }
+        /* Larger touch targets on the Edge for stream info, chat box and sheets */
+        #sheet { zoom: 1.3; }
+        body.bubbles .r[data-login] { margin: 6px 10px; padding: 8px 14px 8px 12px; border-radius: 16px; border: 1px solid var(--line);
+            background: linear-gradient(135deg, color-mix(in srgb, var(--uc, var(--accent)) 14%, var(--raised)), var(--surface) 70%);
+            box-shadow: inset 3px 0 0 var(--uc, var(--accent)), 0 2px 6px rgba(0, 0, 0, 0.35); }
+        body.bubbles .r.hl[data-login] { border-color: var(--accent); }
+        .r, .ev { --gut: calc(var(--fs) * 3.1); }
+        .r { align-items: baseline; }
+        .n:not(.act)::after { content: ":"; color: var(--text-2); }
+        .n.paint { -webkit-background-clip: text; background-clip: text; color: transparent !important; background-size: 100% 100%; }
+        /* Painted names: the see-through text shadow showed through the paint and made it look dark */
+        .n.paint { text-shadow: none; }
+        .at { padding: 0 0.4em; border-radius: 99px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85); font-weight: 650; }
+        #l2.mq { text-overflow: clip; }
+        #l2.mq > span { position: relative; animation: mq var(--mqd) linear infinite alternate; }
+        @keyframes mq { 0%, 15% { left: 0; } 85%, 100% { left: var(--mq); } }
+
+        /* Rounded widget; panels follow the Background Opacity slider (--bg-a) */
+        body { border-radius: 24px; overflow: hidden; }
+        body.bubbles .r[data-login] {
+            background: linear-gradient(135deg, color-mix(in srgb, color-mix(in srgb, var(--uc, var(--accent)) 14%, var(--raised)) calc(var(--bg-a) * 100%), transparent),
+                color-mix(in srgb, var(--surface) calc(var(--bg-a) * 100%), transparent) 70%); }
+        .tile { border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--raised) calc(var(--bg-a) * 100%), transparent); }
+        #hdr { height: 74px; padding: 8px 10px; gap: 8px; border-bottom: 0; }
+        #meta { margin-left: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 12px; }
+        #stats { margin-left: 0; gap: 8px; align-self: stretch; }
+        #stats div { justify-content: center; padding: 0 12px; border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--raised) calc(var(--bg-a) * 100%), transparent); }
+        #avatar { margin: 0 4px; }
+        #field { background: color-mix(in srgb, var(--field) calc(var(--bg-a) * 100%), transparent); }
+        /* Body carries the background so the opacity slider covers the whole widget */
+        #hdr, #suggest, #composer { background: transparent; }
+        .signed-out #send { width: auto; padding: 0 16px; }
+
+        /* ═══ Emote picker ═══ */
+        #picker { position: absolute; right: 12px; bottom: 64px; width: min(390px, calc(100% - 24px)); height: min(340px, calc(100% - 140px)); display: none; flex-direction: column; z-index: 6;
+            background: var(--overlay); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.85), 0 8px 16px -8px rgba(0, 0, 0, 0.6); }
+        #picker.open { display: flex; }
+        .no-header #picker { height: min(340px, calc(100% - 80px)); }
+        #psearch { flex: none; margin: 10px 10px 0; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 11px; background: var(--raised); border: 1px solid var(--line); color: var(--text-3); }
+        #psearch input { flex: 1; height: 100%; font-size: 15px; color: var(--text); }
+        #psearch input::placeholder { color: var(--text-3); }
+        #psearch svg.i { width: 18px; height: 18px; }
+        #ptabs { flex: none; display: flex; margin: 6px 10px 0; border-bottom: 1px solid var(--line); }
+        #ptabs button { flex: 1; min-width: 44px; height: 44px; position: relative; display: grid; place-items: center; color: var(--text-3); font-size: 13px; font-weight: 600; }
+        #ptabs button.on { color: var(--text); }
+        #ptabs button.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+        #ptabs svg.i { width: 19px; height: 19px; }
+        #ptabs img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: var(--raised); }
+        #pbody { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 10px; scrollbar-width: none; touch-action: pan-y; }
+        #pbody::-webkit-scrollbar { display: none; }
+        .ph { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 4px 6px; font-size: 12.5px; color: var(--text-3); }
+        .ph b { color: var(--text); font-weight: 600; }
+        .pg { display: grid; grid-template-columns: repeat(auto-fill, 46px); grid-auto-rows: 46px; justify-content: space-between; }
+        .em { width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center; }
+        .em img { max-width: 36px; max-height: 32px; pointer-events: none; }
+        .em .emoji { font-size: 26px; line-height: 1; }
+        .em.picked { background: var(--hover); box-shadow: inset 0 0 0 1.5px var(--accent); }
+        .pempty { padding: 28px 8px; text-align: center; color: var(--text-3); font-size: 14px; }
+        #ptip { flex: none; height: 0; overflow: hidden; }
+
+        /* ═══ Sheets (settings, user card, sign-in, moderation) ═══ */
+        .catcher { position: absolute; inset: 0; z-index: 8; display: none; background: transparent; }
+        .catcher.open { display: block; }
+        .sheet { position: absolute; left: 10px; right: 10px; bottom: 10px; max-height: calc(100% - 20px); overflow-y: auto; z-index: 9; display: none;
+            padding: 22px 18px 18px; border-radius: 18px; background: var(--overlay); border: 1px solid var(--line-2);
+            box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.9); scrollbar-width: none; touch-action: pan-y; }
+        .sheet.open { display: block; }
+        .sheet.dragging { transition: none; }
+        .sheet::before { content: ""; position: absolute; top: 8px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 99px; background: var(--line-2); }
+        .sh-top { display: flex; align-items: center; gap: 14px; }
+        .sh-title { font-size: 18px; font-weight: 650; letter-spacing: -0.02em; }
+        .sh-sub { font-size: 13px; color: var(--text-3); line-height: 1.5; white-space: pre-line; }
+        .sh-x { margin-left: auto; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--text-2); background: var(--raised); flex: none; }
+        .sh-sec { margin: 18px 0 8px; font-size: 11px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+        .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .chip { min-height: 44px; padding: 0 16px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+        .fl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); flex: none; }
+        .chip small { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--hover); border: 1px solid var(--line-2); color: var(--text-2); }
+        .fl-nm { display: flex; flex-direction: column; text-align: left; line-height: 1.2; padding: 4px 0; }
+        .fl-nm em { font-style: normal; font-size: 12px; font-weight: 500; color: var(--text-3); max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chip.fl-off { color: var(--text-3); min-height: 38px; padding: 0 12px; }
+        .follow-list { font-size: 13px; color: var(--text-3); }
+        .chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+        .chip.danger { color: #FF8A93; }
+        .chip.armed { background: #D92C3A; border-color: #D92C3A; color: #fff; }
+        .chip img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+        .size b { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+        .card-av { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: var(--raised); flex: none; }
+        .card-msgs { max-height: 150px; overflow-y: auto; border-radius: 12px; background: var(--surface); padding: 6px 0; scrollbar-width: none; }
+        .card-msgs .r { padding: 2px 12px; }
+        .card-msgs .c { font-size: 15px; }
+        .code { font-size: 40px; font-weight: 750; letter-spacing: 0.16em; text-align: center; color: var(--accent-hi); margin: 10px 0 6px; user-select: text; }
+        .center { text-align: center; }
+        .txt { flex: 1; min-width: 200px; height: 44px; padding: 0 14px; border-radius: 12px; background: var(--field); border: 1px solid var(--line-2); font-size: 14px; }
+        .txt:focus { border-color: var(--accent-line); }
+
+        #toast { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 20; display: none; max-width: 90%; padding: 10px 16px; border-radius: 12px;
+            background: var(--raised); border: 1px solid var(--line-2); color: var(--text); font-size: 14px; font-weight: 550; box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.8); }
+        #toast.show { display: block; }
+        #toast.err { border-color: rgba(255, 79, 94, 0.6); color: #FFB3B9; }
+    </style>
+</head>
+<body class="no-ts">
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="v-check" viewBox="0 0 16 16"><path d="M8 .8l1.9 1.4 2.3-.1.7 2.2 1.9 1.4-.8 2.3.8 2.3-1.9 1.4-.7 2.2-2.3-.1L8 15.2l-1.9-1.4-2.3.1-.7-2.2L1.2 10.3 2 8l-.8-2.3 1.9-1.4.7-2.2 2.3.1z" fill="#9147FF"/><path d="M5.2 8.2l1.9 1.9 3.8-4" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </svg>
+
+    <header id="hdr">
+        <img id="avatar" alt="">
+        <div id="meta" class="tile">
+            <div id="l1"><span id="chname">XE Chat</span><svg id="verified" class="hidden"><use href="#v-check"/></svg><span id="livetag">LIVE</span><span id="modes"></span></div>
+            <div id="l2"><span id="game"></span><span id="gdot">&middot;</span><span id="stitle"></span></div>
+        </div>
+        <div id="stats">
+            <div><small>Viewers</small><b id="s-viewers">–</b></div>
+            <div><small>Uptime</small><b id="s-uptime">–</b></div>
+            <div id="st-rate"><small>Chat</small><b id="s-rate">–</b></div>
+        </div>
+        <button id="eyebtn" class="ib" aria-label="Stream preview"><svg class="i" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <div class="vr"></div>
+        <button id="modbtn" class="ib" aria-label="Moderation"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-3 8.2-7 10-4-1.8-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></button>
+        <button id="qbtn" class="ib" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    </header>
+
+    <div id="icue-note">Preview only, it won’t look right here. Adjust XE Chat with the settings button on the widget on your Xeneon Edge.</div>
+    <div id="preview"><canvas id="pv"></canvas><span id="pv-msg"></span>
+        <span id="pv-badge"><i></i>LIVE<b id="pv-views"></b></span>
+        <div id="pvctl"><span id="pv-dots"><i></i><i></i><i></i></span><span id="pv-lat"></span>
+        <input id="pv-vol" type="range" min="0" max="100" step="5" aria-label="Volume">
+        <button id="pv-snd" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="pv-wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/><path id="pv-x" d="M16 9l5 6M21 9l-5 6"/></svg></button>
+        <button id="pv-full" aria-label="Theater view"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div></div>
+    <div id="wrap">
+        <div id="chat"></div>
+        <div id="empty">Play a Twitch stream, or pick a channel in settings.</div>
+        <button id="more">New messages</button>
+    </div>
+
+    <div id="suggest"></div>
+    <form id="composer" autocomplete="off">
+        <div id="field">
+            <div id="me"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg></div>
+            <input id="input" maxlength="500" placeholder="Send a message" enterkeyhint="send" spellcheck="false">
+            <button id="emobtn" type="button" aria-label="Emotes"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.2c.9 1.3 2 2 3.5 2s2.6-.7 3.5-2"/><path d="M9.2 10h.01M14.8 10h.01" stroke-width="2.4"/></svg></button>
+        </div>
+        <button id="send" type="submit">Chat</button>
+    </form>
+
+    <section id="picker" aria-label="Emote picker">
+        <label id="psearch"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></svg><input id="pq" placeholder="Search emotes" spellcheck="false"></label>
+        <nav id="ptabs"></nav>
+        <div id="pbody"></div>
+    </section>
+
+    <div class="catcher" id="catcher"></div>
+    <section class="sheet" id="sheet"></section>
+    <div id="toast"></div>
+
+    <script>
+    // iCUE pre-declares icueEvents: assign, never re-declare (a `var` here is a SyntaxError that kills the script).
+    icueEvents = { onICUEInitialized: function () { XEC.init(); }, onDataUpdated: function () { XEC.apply(); } };
+
+    var XEC = (function () {
+        'use strict';
+        var $ = function (id) { return document.getElementById(id); };
+        // Diagnostics: iCUE copies console.warn into its log as "js:" lines.
+        var INST = Math.random().toString(36).slice(2, 6);
+        function diag() { try { console.warn('[XEC ' + INST + '] ' + Array.prototype.join.call(arguments, ' ')); } catch (e) {} }
+        var root = document.documentElement, body = document.body, chat = $('chat'), input = $('input');
+
+        var ICON = {
+            x: '<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+            reply: '<svg class="i" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg>',
+            clock: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+            smile: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.2c.9 1.3 2 2 3.5 2s2.6-.7 3.5-2"/><path d="M9.2 10h.01M14.8 10h.01" stroke-width="2.4"/></svg>',
+            star: '<svg viewBox="0 0 18 18"><path d="M9 2.2l2 4.2 4.6.6-3.3 3.2.8 4.6L9 12.6l-4.1 2.2.8-4.6L2.4 7l4.6-.6z"/></svg>',
+            gift: '<svg viewBox="0 0 18 18"><path d="M2 7h14v3H2zM3 10h12v6H3z"/><path d="M9 7v9" stroke="#000" stroke-opacity=".25"/><path d="M9 7C7 3 4 4 5 6s4 1 4 1zM9 7c2-4 5-3 4-1s-4 1-4 1z"/></svg>',
+            raid: '<svg viewBox="0 0 18 18"><path d="M3 15l6-6M9 9l6-6M12 3h3v3M3 12l3 3M11 11l4 4"/></svg>',
+            mega: '<svg viewBox="0 0 18 18"><path d="M3 7v4h3l6 4V3L6 7z"/></svg>',
+            spark: '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.2 6.6L21 11.5l-6.8 2.3L12 20.5l-2.2-6.7L3 11.5l6.8-2.4z"/></svg>',
+            gem: '<svg viewBox="0 0 18 18"><path d="M9 1.5l6.5 5.5L9 16.5 2.5 7z" fill="#2BC4B4"/><path d="M9 1.5L6 7h6zM2.5 7H15.5L9 16.5z" fill="#7FE6DB" opacity=".55"/></svg>',
+            twitch: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.3 2 3 5.4V20h5v2.6h2.8l2.6-2.6h4l4.6-4.6V2zm15.9 12.6-3 3h-4.6l-2.6 2.6v-2.6H5.6V3.8h14.6zM16 7.4h1.8v5H16zm-4.6 0h1.8v5h-1.8z"/></svg>'
+        };
+
+        // ── Settings ──────────────────────────────────────────────
+        var S = {
+            channel: '', followPlaying: true, showHeader: true, showBadges: true, showTimestamps: true, bubbles: true,
+            hideCommands: false, hideBots: true, highlightWords: '', messageLimit: 150,
+            clientId: '', showModBar: true, showInput: true,
+            theme: 'custom', accentColor: '#9147FF', textColor: '#EDEDF0', backgroundColor: '#0B0B0D',
+            transparency: 100, textScale: 100, headerScale: 150, serverPort: '16329'
+        };
+        var THEMES = {
+            neon: { accent: '#00E5FF', text: '#E6FCFF', bg: '#05060F' }, synthwave: { accent: '#FF3CAC', text: '#FFE8F6', bg: '#120623' },
+            sunset: { accent: '#FF7A45', text: '#FFF1E6', bg: '#140A0C' }, ocean: { accent: '#2EC5FF', text: '#E3F6FF', bg: '#04121C' },
+            aurora: { accent: '#4DFFB0', text: '#E9FFF6', bg: '#061210' }, ember: { accent: '#FF4D2E', text: '#FFE9E2', bg: '#0E0605' },
+            mono: { accent: '#FFFFFF', text: '#F0F0F0', bg: '#000000' }
+        };
+        var BOTS = ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'soundalerts', 'sery_bot', 'botrixoficial', 'kofistreambot', 'pokemoncommunitygame', 'own3d', 'commanderroot', 'lurxx'];
+        function bool(v) { return v === true || v === 'true' || v === 1; }
+        function numIn(v, lo, hi, d) { var n = Number(v); return v === '' || v === null || !isFinite(n) ? d : Math.max(lo, Math.min(hi, n)); }
+        function color(v, d) {
+            if (typeof v !== 'string') return d;
+            if (/^#[0-9a-f]{8}$/i.test(v)) return '#' + v.slice(3);   // Qt #AARRGGBB
+            return /^#[0-9a-f]{6}$/i.test(v) ? v : d;
+        }
+        function cleanLogin(v) { return String(v || '').trim().replace(/^.*twitch\.tv\//i, '').replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 25); }
+        function readSettings() {
+            if (typeof channel !== 'undefined') S.channel = cleanLogin(channel);
+            if (typeof followPlaying !== 'undefined') S.followPlaying = bool(followPlaying);
+            if (typeof showHeader !== 'undefined') S.showHeader = bool(showHeader);
+            if (typeof showBadges !== 'undefined') S.showBadges = bool(showBadges);
+            if (typeof bubbles !== 'undefined') S.bubbles = bool(bubbles);
+            if (typeof showTimestamps !== 'undefined') S.showTimestamps = bool(showTimestamps);
+            if (typeof hideCommands !== 'undefined') S.hideCommands = bool(hideCommands);
+            if (typeof hideBots !== 'undefined') S.hideBots = bool(hideBots);
+            if (typeof highlightWords !== 'undefined') S.highlightWords = String(highlightWords || '');
+            if (typeof messageLimit !== 'undefined') S.messageLimit = Math.round(numIn(messageLimit, 20, 1000, 150));
+            if (typeof clientId !== 'undefined') S.clientId = String(clientId || '').trim().replace(/[^a-z0-9]/gi, '');
+            if (typeof showModBar !== 'undefined') S.showModBar = bool(showModBar);
+            if (typeof chatBox !== 'undefined') S.showInput = bool(chatBox);
+            if (typeof theme !== 'undefined') S.theme = THEMES[theme] || theme === 'custom' ? theme : 'custom';
+            if (typeof accentColor !== 'undefined') S.accentColor = color(accentColor, '#9147FF');
+            if (typeof textColor !== 'undefined') S.textColor = color(textColor, '#EDEDF0');
+            if (typeof backgroundColor !== 'undefined') S.backgroundColor = color(backgroundColor, '#0B0B0D');
+            if (typeof headerScale !== 'undefined') S.headerScale = numIn(headerScale, 80, 220, 150);
+            if (typeof transparency !== 'undefined') S.transparency = numIn(transparency, 0, 100, 100);
+            if (typeof textScale !== 'undefined') S.textScale = numIn(textScale, 50, 250, 100);
+            if (typeof serverPort !== 'undefined') { var p = String(serverPort).trim(); S.serverPort = /^\d{2,5}$/.test(p) ? p : '16329'; }
+        }
+
+        // Choices made on the widget itself (settings sheet) override iCUE's values until that
+        // iCUE setting changes again. S always holds the pure iCUE values.
+        var LOCAL_KEY = 'xechat.local', L = {};
+        try { L = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}') || {}; } catch (e) { L = {}; }
+        function saveLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(L)); } catch (e) {} }
+        var OVERRIDABLE = ['showTimestamps', 'showBadges', 'showHeader', 'hideBots', 'hideCommands', 'bubbles'];
+        var lastIcue = L.icue || null;
+        function syncLocal() {
+            var now = { channel: S.channel, followPlaying: S.followPlaying, textScale: S.textScale, highlightWords: S.highlightWords };
+            OVERRIDABLE.forEach(function (k) { now[k] = S[k]; });
+            if (lastIcue) {
+                OVERRIDABLE.forEach(function (k) { if (now[k] !== lastIcue[k]) delete L[k]; });
+                if (now.channel !== lastIcue.channel || now.followPlaying !== lastIcue.followPlaying) { delete L.pin; delete L.follow; }
+                if (now.textScale !== lastIcue.textScale) delete L.zoom;
+                if (now.highlightWords !== lastIcue.highlightWords) delete L.hlWords;
+            }
+            lastIcue = now;
+            if (JSON.stringify(L.icue) !== JSON.stringify(now)) { L.icue = now; saveLocal(); }
+        }
+        function opt(k) { return k in L ? L[k] : S[k]; }
+        function clientIdNow() { return S.clientId || L.clientId || ''; }
+
+        // ── Colors ────────────────────────────────────────────────
+        function hexRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+        function mix(c, to, p) { return 'rgb(' + c.map(function (v, i) { return Math.round(v + (to[i] - v) * p); }).join(',') + ')'; }
+        function rgba(c, a) { return 'rgba(' + c.join(',') + ',' + a + ')'; }
+        function lum(c) { return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255; }
+        function applyColors() {
+            var t = THEMES[S.theme];
+            var bg = hexRgb(t ? t.bg : S.backgroundColor), ac = hexRgb(t ? t.accent : S.accentColor), tx = hexRgb(t ? t.text : S.textColor);
+            var W = [255, 255, 255], set = function (k, v) { root.style.setProperty(k, v); };
+            set('--bg-rgb', bg.join(',')); set('--bg-a', S.transparency / 100); uiZoom(); body.classList.toggle('bubbles', !!opt('bubbles')); body.classList.toggle('no-first', L.hlFirst === false); body.classList.toggle('no-lat', L.pvLat === false); root.style.setProperty('--es', L.emoteScale || 1); fitTitle(); if (typeof pvSize === 'function') pvSize();
+            set('--canvas', mix(bg, W, 0)); set('--surface', mix(bg, W, 0.025)); set('--raised', mix(bg, W, 0.055));
+            set('--overlay', mix(bg, W, 0.04)); set('--field', mix(bg, W, 0.045)); set('--hover', mix(bg, W, 0.1));
+            set('--text', rgba(tx, 1)); set('--text-2', rgba(tx, 0.66)); set('--text-3', rgba(tx, 0.42));
+            set('--accent', rgba(ac, 1)); set('--accent-hi', mix(ac, W, 0.38)); set('--accent-soft', rgba(ac, 0.14)); set('--accent-line', rgba(ac, 0.55));
+            set('--on-accent', lum(ac) > 0.62 ? '#111' : '#fff');
+        }
+
+        // Long channel names shrink to fit instead of being cut off
+        function fitName() {
+            var n = $('chname'); n.style.fontSize = ''; body.classList.remove('long-name');
+            var size = parseFloat(getComputedStyle(n).fontSize);
+            while (n.scrollWidth > n.clientWidth + 1 && size > 13) { size -= 1; n.style.fontSize = size + 'px'; }
+            if (n.scrollWidth > n.clientWidth + 1) {   // still too long: LIVE moves onto the avatar to make room
+                body.classList.add('long-name'); n.style.fontSize = '';
+                size = parseFloat(getComputedStyle(n).fontSize);
+                while (n.scrollWidth > n.clientWidth + 1 && size > 12) { size -= 1; n.style.fontSize = size + 'px'; }
+            }
+        }
+        window.addEventListener('resize', function () { fitName(); });
+        function uiZoom() {   // Stream Info Size, shrunk on narrow widgets so the bar and chat box always fit
+            var narrow = Math.min(1, innerWidth / 760);
+            var z = S.headerScale / 100 * narrow;
+            root.style.setProperty('--fs', (20 * S.textScale / 100 * (L.zoom || 1) * Math.max(0.6, narrow)).toFixed(2) + 'px');
+            ['hdr', 'composer', 'suggest', 'picker'].forEach(function (id) { $(id).style.zoom = z; });
+            fitName();
+        }
+        window.addEventListener('resize', function () { uiZoom(); });
+        function apply() {
+            readSettings();
+            syncLocal();
+            uiZoom();
+            applyColors();
+            body.classList.toggle('no-header', !opt('showHeader'));
+            body.classList.toggle('no-badges', !opt('showBadges'));
+            body.classList.toggle('no-ts', !opt('showTimestamps'));
+            body.classList.toggle('show-mod', S.showModBar);
+            body.classList.toggle('no-input', !S.showInput);
+            body.classList.toggle('see-through', S.transparency < 60);
+            highlightRe = buildHighlight();
+            updateComposer();
+            if (S.serverPort !== npPort) connectNowPlaying();
+            chooseChannel();
+            trim();
+            diag('settings', 'textScale=' + S.textScale, 'zoom=' + (L.zoom || 1), 'theme=' + S.theme, 'accent=' + S.accentColor, 'bgA=' + S.transparency, 'input=' + S.showInput);
+        }
+
+        // ── Small helpers ─────────────────────────────────────────
+        var toastT = 0;
+        function toast(text, err) {
+            var t = $('toast');
+            t.textContent = text; t.classList.toggle('err', !!err); t.classList.add('show');
+            clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 2800);
+        }
+        function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+        function svgEl(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstChild; }   // our own constant markup only
+        function fmtNum(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'K' : n.toLocaleString('en-US'); }
+        function fmtDur(ms) { var s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); s %= 60; return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+        function fmtAge(iso) {
+            var d = (Date.now() - Date.parse(iso)) / 86400000; if (!isFinite(d)) return '';
+            return d >= 365 ? (d / 365).toFixed(1) + ' years' : d >= 30 ? Math.floor(d / 30) + ' months' : Math.floor(d) + ' days';
+        }
+        function hhmm(ts) { var d = new Date(ts); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+        // ivr.fi sometimes returns UTF-8 text decoded as Windows-1252 ("ðŸ˜˜"); undo that when it clearly happened.
+        var CP1252 = { 8364: 128, 8218: 130, 402: 131, 8222: 132, 8230: 133, 8224: 134, 8225: 135, 710: 136, 8240: 137, 352: 138, 8249: 139, 338: 140, 381: 142,
+            8216: 145, 8217: 146, 8220: 147, 8221: 148, 8226: 149, 8211: 150, 8212: 151, 732: 152, 8482: 153, 353: 154, 8250: 155, 339: 156, 382: 158, 376: 159 };
+        function fixMojibake(s) {
+            if (!s || !/[Â-ô][\u0080-¿Œ-™\udc80-\udcff]/.test(s)) return s;
+            var bytes = [];
+            for (var i = 0; i < s.length; i++) {
+                var c = s.charCodeAt(i);
+                if (c < 256) bytes.push(c);
+                else if (CP1252[c]) bytes.push(CP1252[c]);
+                else if (c >= 0xdc80 && c <= 0xdcff) bytes.push(c - 0xdc00);
+                else return s;
+            }
+            try { return new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes)); } catch (e) { return s; }
+        }
+        function viaServer(url, opts) {
+            opts = opts || {};
+            var h = opts.headers || {}, q = { m: opts.method || 'GET', u: url };
+            if (h.Authorization) q.a = h.Authorization;
+            if (h['Client-Id']) q.c = h['Client-Id'];
+            if (opts.body) { q.b = opts.body; q.t = h['Content-Type'] || ''; }
+            return fetch('http://localhost:' + S.serverPort + '/tw?' + form(q), { cache: 'no-store' });
+        }
+        // Scroll the game · title line back and forth when it doesn't fit
+        function fitTitle() {
+            var l2 = $('l2'); l2.classList.remove('mq');
+            var over = l2.scrollWidth - l2.clientWidth;
+            if (over > 4) { l2.style.setProperty('--mq', -over + 'px'); l2.style.setProperty('--mqd', Math.max(6, over / 25) + 's'); l2.classList.add('mq'); }
+        }
+        window.addEventListener('resize', function () { setTimeout(fitTitle, 100); });
+        async function getJSON(url, opts) {
+            var r;
+            try { r = await fetch(url, opts); }
+            catch (e) { if (!/^https:\/\/(id|api|gql)\.twitch\.tv\//.test(url)) throw e; r = await viaServer(url, opts); }
+            if (!r.ok) {
+                var msg = 'HTTP ' + r.status;
+                try { var j = await r.json(); msg = j.message || j.error || msg; } catch (e0) {}
+                var e = new Error(msg); e.status = r.status; throw e;
+            }
+            return r.status === 204 ? null : r.json();
+        }
+
+        // Images: iCUE's browser won't load <img> from the internet directly, but fetch()
+        // works, so download each image once and show it from memory (blob URL). Hosts
+        // that refuse cross-origin fetches (BetterTTV) go through the local server.
+        var imgCache = {}, imgFails = 0;
+        function loadBlob(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); }); }
+        var imgCount = 0;
+        function setImg(im, url) {
+            if (!url) return;
+            im.dataset.want = url;
+            var c = imgCache[url];
+            if (typeof c === 'string') { im.src = c; return; }
+            if (++imgCount > 1500) {   // 7. bound memory: drop every cached blob (shown images keep their pixels)
+                for (var k in imgCache) if (typeof imgCache[k] === 'string' && imgCache[k].indexOf('blob:') === 0) URL.revokeObjectURL(imgCache[k]);
+                imgCache = {}; imgCount = 1; c = undefined;
+            }
+            if (!c) c = imgCache[url] = loadBlob(url)
+                .catch(function () { return loadBlob('http://localhost:' + S.serverPort + '/img?u=' + encodeURIComponent(url)); })
+                .then(function (b) { return (imgCache[url] = URL.createObjectURL(b)); })
+                .catch(function () { if (++imgFails <= 3) diag('image failed', url); delete imgCache[url]; return url; });   // last resort: let the browser try
+            c.then(function (u) { if (im.dataset.want === url) im.src = u; });
+        }
+
+        // Readable name colors on a dark background.
+        var nameColors = {};
+        var userColors = { n: 0 };   // login -> name color, for @mention pills
+        function nameColor(hex, login) {
+            if (!hex) {
+                var h = 0; for (var i = 0; i < login.length; i++) h = (h * 31 + login.charCodeAt(i)) | 0;
+                return 'hsl(' + (Math.abs(h) % 360) + ',72%,68%)';
+            }
+            if (nameColors[hex]) return nameColors[hex];
+            var c = hexRgb(hex), r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, s = 0, hh = 0, d = mx - mn;
+            if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); hh = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60; }
+            return (nameColors[hex] = 'hsl(' + Math.round(hh) + ',' + Math.round(Math.min(s, 0.85) * 100) + '%,' + Math.round(Math.max(l, 0.64) * 100) + '%)');
+        }
+
+        // ── Badges ────────────────────────────────────────────────
+        var badges = { global: {}, channel: {} };
+        function indexBadges(list) {
+            var out = {};
+            (list || []).forEach(function (b) { out[b.set_id] = {}; (b.versions || []).forEach(function (v) { out[b.set_id][v.id] = { url: v.image_url_2x, title: v.title }; }); });
+            return out;
+        }
+        function badgeFor(set, ver) { var c = badges.channel[set], g = badges.global[set]; return (c && c[ver]) || (g && g[ver]) || null; }
+
+        // ── Emotes: kept per provider/scope for the picker; one name→url map for rendering ──
+        var ESETS = {};      // key -> { provider: '7tv'|'bttv'|'ffz'|'twitch', scope: 'channel'|'global'|'user', list: [{name, url}] }
+        var emoteMap = {};   // third-party emotes rendered by name in chat (channel wins over global)
+        var emoteVersion = 0;
+        function putSet(key, provider, scope, list) {
+            ESETS[key] = { provider: provider, scope: scope, list: list };
+            var m = Object.create(null);
+            ['global', 'channel'].forEach(function (sc) {
+                Object.keys(ESETS).forEach(function (k) { var s = ESETS[k]; if (s.scope === sc && s.provider !== 'twitch') s.list.forEach(function (e) { m[e.name] = e.url; }); });
+            });
+            emoteMap = m; emoteVersion++;
+            if (pickerOpen) renderPicker();
+        }
+        function dropScope(scope) { Object.keys(ESETS).forEach(function (k) { if (ESETS[k].scope === scope) delete ESETS[k]; }); putSet('_', 'none', 'none', []); }
+        // ── 7TV paints (gradient names) and badges ──
+        // Cosmetic definitions load once; each chatter is looked up once, in batches.
+        var STV_GQL = 'https://7tv.io/v3/gql', stvPaints = null, stvBadges = {}, stvUsers = Object.create(null), stvQueue = [], stvTimer = 0;
+        // Remember who has which paint for 12h so returning chatters show up styled instantly
+        var STV_KEY = 'xechat.stv', stvSaveT = 0;
+        try { var stvSaved = JSON.parse(localStorage.getItem(STV_KEY) || 'null'); if (stvSaved && Date.now() - stvSaved.t < 43200000) Object.keys(stvSaved.u).forEach(function (k) { var v = stvSaved.u[k]; stvUsers[k] = v ? { paint: v[0], badge: v[1] } : false; }); } catch (e) {}
+        function stvSave() {
+            clearTimeout(stvSaveT);
+            stvSaveT = setTimeout(function () {
+                var u = {}, n = 0;
+                for (var k in stvUsers) { if (stvUsers[k] === null || ++n > 4000) continue; u[k] = stvUsers[k] ? [stvUsers[k].paint, stvUsers[k].badge] : 0; }
+                try { localStorage.setItem(STV_KEY, JSON.stringify({ t: stvSaved && stvSaved.t || Date.now(), u: u })); } catch (e) {}
+            }, 5000);
+        }
+        // Fetch a paint/badge image before the message is shown, so it appears complete (no flash)
+        function stvPreload(u) {
+            var jobs = [];
+            var pt = u.paint && stvPaints && stvPaints[u.paint];
+            if (pt && pt.img) {
+                if (!pt.imgP) pt.imgP = loadBlob(pt.img).catch(function () { return loadBlob('http://localhost:' + S.serverPort + '/img?u=' + encodeURIComponent(pt.img)); })
+                    .then(function (b) { return URL.createObjectURL(b); });
+                jobs.push(pt.imgP.then(function (src) { pt.src = src; }));
+            }
+            var b = u.badge && stvBadges[u.badge];
+            if (b) { setImg(document.createElement('img'), b.url); jobs.push(Promise.resolve(imgCache[b.url])); }
+            return Promise.all(jobs).catch(function () {});
+        }
+        function stvColor(n) { n = n >>> 0; return 'rgba(' + (n >>> 24) + ',' + ((n >>> 16) & 255) + ',' + ((n >>> 8) & 255) + ',' + ((n & 255) / 255).toFixed(3) + ')'; }
+        function stvGql(query) {
+            return fetch(STV_GQL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query }) })
+                .then(function (r) { return r.json(); });
+        }
+        function loadStvCosmetics() {
+            stvPaints = {};
+            stvGql('{ cosmetics { paints { id function color angle shape image_url repeat stops { at color } shadows { x_offset y_offset radius color } } badges { id tooltip host { url } } } }').then(function (j) {
+                var cs = j && j.data && j.data.cosmetics; if (!cs) return;
+                cs.paints.forEach(function (p) {
+                    var stops = (p.stops || []).map(function (st) { return stvColor(st.color) + ' ' + (st.at * 100) + '%'; }).join(', ');
+                    var bg = '';
+                    if (p.function === 'LINEAR_GRADIENT' && stops) bg = (p.repeat ? 'repeating-' : '') + 'linear-gradient(' + p.angle + 'deg, ' + stops + ')';
+                    else if (p.function === 'RADIAL_GRADIENT' && stops) bg = (p.repeat ? 'repeating-' : '') + 'radial-gradient(' + (p.shape || 'circle') + ', ' + stops + ')';
+                    var sh = (p.shadows || []).map(function (d) { return 'drop-shadow(' + d.x_offset + 'px ' + d.y_offset + 'px ' + d.radius + 'px ' + stvColor(d.color) + ')'; }).join(' ');
+                    stvPaints[p.id] = { bg: bg, img: p.function === 'URL' ? p.image_url.replace(/\/1x\.webp$/, '/3x.webp') : '', color: p.color != null ? stvColor(p.color) : '', shadow: sh };
+                });
+                cs.badges.forEach(function (b) { stvBadges[b.id] = { url: 'https:' + b.host.url + '/2x.webp', title: b.tooltip }; });
+                Object.keys(stvUsers).forEach(function (uid) { if (stvUsers[uid]) stvRefresh(uid); });
+            }).catch(function (e) { diag('7tv cosmetics failed', e.message); });
+        }
+        function stvStyle(nm, uid) {
+            if (!uid || !/^\d+$/.test(uid)) return;
+            var u = stvUsers[uid];
+            if (u === undefined) {   // unknown: look it up (batched)
+                stvUsers[uid] = null; stvQueue.push(uid);
+                if (!stvTimer) stvTimer = setTimeout(stvFlush, 120);
+                return 'wait';
+            }
+            if (u === null) return 'wait';
+            if (!u || !stvPaints) return;
+            var p = L.paints !== false && u.paint && stvPaints[u.paint];
+            if (p) {
+                if (p.img && p.src) { nm.style.backgroundImage = 'url(' + p.src + ')'; nm.style.backgroundSize = 'cover'; nm.style.backgroundPosition = 'center'; }
+                else if (p.img) {
+                    if (!p.imgP) p.imgP = loadBlob(p.img).catch(function () { return loadBlob('http://localhost:' + S.serverPort + '/img?u=' + encodeURIComponent(p.img)); })
+                        .then(function (b) { return URL.createObjectURL(b); });
+                    p.imgP.then(function (src) { nm.style.backgroundImage = 'url(' + src + ')'; nm.style.backgroundSize = 'cover'; nm.style.backgroundPosition = 'center'; }).catch(function () {});
+                } else if (p.bg) nm.style.backgroundImage = p.bg;
+                if (p.color) nm.style.backgroundColor = p.color;
+                else nm.style.backgroundColor = nm.style.color;
+                // 7TV glow shadows skipped: a drop-shadow on every painted name lags busy chats
+                nm.classList.add('paint');
+            }
+            var b = u.badge && stvBadges[u.badge];
+            if (b && !nm.previousSibling || b && !nm.previousSibling.classList.contains('stv')) {
+                var im = el('img', 'bd stv'); setImg(im, b.url); im.title = b.title; nm.parentNode.insertBefore(im, nm);
+            }
+        }
+        function stvRefresh(uid) {
+            chat.querySelectorAll('.r[data-uid="' + uid + '"] .n').forEach(function (nm) { stvStyle(nm, uid); });
+        }
+        function stvFlush() {
+            stvTimer = 0;
+            var batch = stvQueue.splice(0, 25);
+            if (!batch.length) return;
+            var q = batch.map(function (uid, i) { return 'u' + i + ': userByConnection(platform: TWITCH, id: "' + uid + '") { style { paint_id badge_id } }'; }).join(' ');
+            stvGql('{ ' + q + ' }').then(function (j) {
+                var d = (j && j.data) || {};
+                batch.forEach(function (uid, i) {
+                    var st = d['u' + i] && d['u' + i].style;
+                    var u = st && (st.paint_id || st.badge_id) ? { paint: st.paint_id, badge: st.badge_id } : false;
+                    (u ? stvPreload(u) : Promise.resolve()).then(function () { stvUsers[uid] = u; if (u) stvRefresh(uid); kickFlush(); });
+                    stvSave();
+                });
+            }).catch(function () { batch.forEach(function (uid) { stvUsers[uid] = false; }); kickFlush(); });
+            if (stvQueue.length) stvTimer = setTimeout(stvFlush, 120);
+        }
+
+        function loadThirdParty(uid) {
+            var sc = uid ? 'channel' : 'global', tag = uid || 'g';
+            function ok(prov, list) { if (!uid || uid === room.id) putSet(prov + ':' + sc, prov, sc, list); }
+            function ffz(sets) { var out = []; Object.keys(sets || {}).forEach(function (k) { (sets[k].emoticons || []).forEach(function (e) { out.push({ name: e.name, url: e.urls['2'] || e.urls['1'] }); }); }); return out; }
+            function seven(list) { return (list || []).map(function (e) { return { name: e.name, url: 'https:' + e.data.host.url + '/2x.webp' }; }); }
+            function bttv(list) { return (list || []).map(function (e) { return { name: e.code, url: 'https://cdn.betterttv.net/emote/' + e.id + '/2x.webp' }; }); }
+            var jobs = uid ? [
+                getJSON('https://7tv.io/v3/users/twitch/' + uid).then(function (d) { ok('7tv', seven((d.emote_set || {}).emotes)); }),
+                getJSON('https://api.betterttv.net/3/cached/users/twitch/' + uid).then(function (d) { ok('bttv', bttv((d.channelEmotes || []).concat(d.sharedEmotes || []))); }),
+                getJSON('https://api.frankerfacez.com/v1/room/id/' + uid).then(function (d) { ok('ffz', ffz(d.sets)); })
+            ] : [
+                getJSON('https://7tv.io/v3/emote-sets/global').then(function (d) { ok('7tv', seven(d.emotes)); }),
+                getJSON('https://api.betterttv.net/3/cached/emotes/global').then(function (d) { ok('bttv', bttv(d)); }),
+                getJSON('https://api.frankerfacez.com/v1/set/global').then(function (d) { var o = {}; (d.default_sets || []).forEach(function (k) { if (d.sets && d.sets[k]) o[k] = d.sets[k]; }); ok('ffz', ffz(o)); })
+            ];
+            return Promise.all(jobs.map(function (j) { return j.catch(function () {}); }));
+        }
+        function twitchEmoteUrl(id) { return 'https://static-cdn.jtvnw.net/emoticons/v2/' + encodeURIComponent(id) + '/default/dark/2.0'; }
+        // Twitch emotes you can use (needs sign-in). Falls back to global + channel if the
+        // token predates the user:read:emotes scope.
+        async function loadTwitchEmotes() {
+            if (!auth || !auth.access) return;
+            var id = room.id, same = function () { return id === room.id; };
+            var map = function (d) { return (d.data || []).map(function (e) { return { name: e.name, url: twitchEmoteUrl(e.id) }; }); };
+            try {
+                var all = [], cursor = '', n = 0;
+                do {
+                    var d = await helix('GET', '/chat/emotes/user?user_id=' + auth.uid + (id ? '&broadcaster_id=' + id : '') + (cursor ? '&after=' + cursor : ''));
+                    if (!same()) return;
+                    all = all.concat(map(d)); cursor = d.pagination && d.pagination.cursor;
+                } while (cursor && ++n < 15);
+                if (same()) putSet('twitch:user', 'twitch', 'user', all);
+            } catch (e) {
+                if (!auth) return;
+                try { var g = map(await helix('GET', '/chat/emotes/global')); putSet('twitch:global', 'twitch', 'global', g); } catch (e2) {}
+                if (id) try { var cset = map(await helix('GET', '/chat/emotes?broadcaster_id=' + id)); if (same()) putSet('twitch:channel', 'twitch', 'channel', cset); } catch (e3) {}
+            }
+        }
+
+        var globalReady = Promise.resolve();
+        function loadGlobal() {
+            globalReady = Promise.all([
+                getJSON('https://api.ivr.fi/v2/twitch/badges/global').then(function (d) { badges.global = indexBadges(d); }).catch(function () {}),
+                loadThirdParty(null)
+            ]);
+        }
+
+        // ── Stream info (ivr.fi: works without signing in) ────────
+        var room = { login: '', id: '', live: false, startedAt: 0, info: null };
+        var infoTimer = 0, extrasReady = Promise.resolve();
+        function refreshInfo() {
+            var login = room.login;
+            if (login) getJSON('https://api.ivr.fi/v2/twitch/user?login=' + encodeURIComponent(login)).then(function (d) { applyInfo(login, d && d[0]); }).catch(function () {});
+        }
+        function applyInfo(login, u) {
+            if (!u || login !== room.login) return;
+            room.info = u;
+            if (!room.id) { room.id = u.id; loadChannelExtras(); }
+            $('chname').textContent = u.displayName || login; fitName();
+            $('verified').classList.toggle('hidden', !(u.roles && u.roles.isPartner));
+            if (u.logo) setImg($('avatar'), u.logo);
+            var st = u.stream;
+            room.live = !!st; setTimeout(previewSync, 0);
+            room.startedAt = st ? Date.parse(st.createdAt) : 0;
+            body.classList.toggle('is-live', room.live);
+            $('game').textContent = st && st.game ? st.game.displayName : '';
+            $('stitle').textContent = st ? fixMojibake(st.title) : (u.followers != null ? fmtNum(u.followers) + ' followers · offline' : 'offline');
+            $('s-viewers').textContent = st ? fmtNum(st.viewersCount) : '–';
+            $('pv-views').textContent = st ? fmtNum(st.viewersCount) : '';
+            fitTitle();
+            if (pickerOpen) renderTabs();
+        }
+        setInterval(function () { var m = Math.floor((Date.now() - room.startedAt) / 60000), t = room.live && room.startedAt ? (m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60) + 'm' : m + 'm') : '–'; var u = $('s-uptime'); if (u.textContent !== t) u.textContent = t; }, 1000);
+        function loadChannelExtras() {
+            var id = room.id, login = room.login;
+            extrasReady = Promise.all([
+                getJSON('https://api.ivr.fi/v2/twitch/badges/channel?login=' + encodeURIComponent(login)).then(function (d) { if (login === room.login) badges.channel = indexBadges(d); }).catch(function () {}),
+                loadThirdParty(id)
+            ]);
+            checkMod();
+            loadTwitchEmotes();
+        }
+
+        // ── Room modes (IRC ROOMSTATE) ────────────────────────────
+        var modes = { slow: 0, emote: false, sub: false, follow: -1, shield: false };
+        function renderModes() {
+            var box = $('modes'); box.textContent = '';
+            if (modes.slow > 0) box.appendChild(el('span', 'mchip', 'SLOW ' + modes.slow + 's'));
+            if (modes.emote) box.appendChild(el('span', 'mchip', 'EMOTE ONLY'));
+            if (modes.sub) box.appendChild(el('span', 'mchip', 'SUB ONLY'));
+            if (modes.follow >= 0) box.appendChild(el('span', 'mchip', 'FOLLOWERS' + (modes.follow ? ' ' + modes.follow + 'm' : '')));
+            if (modes.shield) box.appendChild(el('span', 'mchip', 'SHIELD'));
+            if (sheetKind === 'mod') renderMod();
+        }
+
+        // ── IRC (anonymous read, through the local relay) ─────────
+        // iCUE's browser can't open WebSockets to the internet, so chat goes through the
+        // local XE Visualizer server ("relay"); if that isn't running, try Twitch directly.
+        var irc = null, ircRetry = 0, ircBackoff = 1000, viaRelay = true;
+        function unescapeTag(v) { return v.replace(/\\(.)/g, function (_, c) { return c === 's' ? ' ' : c === ':' ? ';' : c === 'r' ? '\r' : c === 'n' ? '\n' : c; }); }
+        function parseIRC(line) {
+            var m = { tags: {}, prefix: '', cmd: '', params: [] }, i = 0;
+            if (line[0] === '@') {
+                i = line.indexOf(' ');
+                line.slice(1, i).split(';').forEach(function (kv) { var e = kv.indexOf('='); m.tags[e < 0 ? kv : kv.slice(0, e)] = e < 0 ? '' : unescapeTag(kv.slice(e + 1)); });
+                i++;
+            }
+            if (line[i] === ':') { var j = line.indexOf(' ', i); m.prefix = line.slice(i + 1, j); i = j + 1; }
+            var rest = line.slice(i), t = rest.indexOf(' :');
+            var head = t >= 0 ? rest.slice(0, t) : rest;
+            var parts = head.split(' ').filter(Boolean);
+            m.cmd = parts.shift() || '';
+            m.params = parts;
+            if (t >= 0) m.params.push(rest.slice(t + 2));
+            return m;
+        }
+        function connectIRC() {
+            clearTimeout(ircRetry);
+            if (irc) { irc.onclose = irc.onmessage = irc.onerror = null; try { irc.close(); } catch (e) {} }
+            irc = null;
+            if (!room.login) return;
+            var login = room.login, relay = viaRelay, opened = false, sock;
+            try { sock = new WebSocket(relay ? 'ws://localhost:' + S.serverPort : 'wss://irc-ws.chat.twitch.tv:443'); }
+            catch (e) { viaRelay = !relay; ircRetry = setTimeout(connectIRC, 1000); return; }
+            irc = sock;
+            sock.onopen = function () {
+                opened = true;
+                if (relay) sock.send(JSON.stringify({ type: 'irc', channel: login }));
+                else {
+                    sock.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+                    sock.send('NICK justinfan' + (10000 + Math.floor(Math.random() * 80000)));
+                    sock.send('JOIN #' + login);
+                }
+                ircBackoff = 1000;
+                diag('chat connected', login, relay ? 'via relay' : 'direct');
+            };
+            sock.onmessage = function (ev) {
+                // The relay greets with track info JSON first; chat lines never start with '{'.
+                if (irc !== sock || login !== room.login || typeof ev.data !== 'string' || ev.data[0] === '{') return;
+                ev.data.split('\r\n').forEach(function (line) { if (line) handleIRC(parseIRC(line), false); });
+            };
+            sock.onerror = function () { diag('irc error', login); };
+            sock.onclose = function (ev) {
+                diag('irc close', login, 'code=' + ev.code, relay ? 'relay' : 'direct', 'opened=' + opened);
+                if (irc !== sock) return;
+                if (!opened) viaRelay = !relay;   // couldn't even connect: try the other route next
+                sysMsg('Reconnecting to chat…', true);
+                ircRetry = setTimeout(connectIRC, ircBackoff); ircBackoff = Math.min(15000, ircBackoff * 2);
+            };
+        }
+        function handleIRC(m, hist) {
+            switch (m.cmd) {
+                case 'PING': if (!viaRelay && irc && irc.readyState === 1) irc.send('PONG :' + (m.params[0] || 'tmi.twitch.tv')); break;
+                case 'RECONNECT': connectIRC(); break;
+                case 'PRIVMSG': addChat(m, hist); break;
+                case 'USERNOTICE': addNotice(m, hist); break;
+                case 'CLEARCHAT': if (!hist) onClearChat(m); break;
+                case 'CLEARMSG': if (!hist) markDeleted(m.tags['target-msg-id']); break;
+                case 'ROOMSTATE':
+                    if (m.tags['room-id'] && m.tags['room-id'] !== room.id) { room.id = m.tags['room-id']; loadChannelExtras(); }
+                    if ('slow' in m.tags) modes.slow = +m.tags.slow || 0;
+                    if ('emote-only' in m.tags) modes.emote = m.tags['emote-only'] === '1';
+                    if ('subs-only' in m.tags) modes.sub = m.tags['subs-only'] === '1';
+                    if ('followers-only' in m.tags) modes.follow = +m.tags['followers-only'];
+                    renderModes();
+                    break;
+                case 'NOTICE': if (!hist && m.params[1]) sysMsg(m.params[1], true); break;
+            }
+        }
+
+        // ── Message rendering ─────────────────────────────────────
+        var highlightRe = null;
+        function buildHighlight() {
+            var words = ('hlWords' in L ? L.hlWords : S.highlightWords).split(',').map(function (w) { return w.trim(); }).filter(Boolean);
+            if (auth && auth.login && L.hlMe !== false) words.push(auth.login);
+            if (!words.length) return null;
+            return new RegExp('(^|\\W)@?(' + words.map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')(?=\\W|$)', 'i');
+        }
+        var userMsgs = Object.create(null), displayNames = Object.create(null), chatterCount = 0;   // per chatter: recent messages (user card) and display name (@ suggestions)
+        function remember(login, text, ts, display) {
+            var a = userMsgs[login];
+            if (!a) {
+                if (++chatterCount > 3000) { userMsgs = Object.create(null); displayNames = Object.create(null); chatterCount = 1; }   // long busy streams: start over
+                a = userMsgs[login] = [];
+            }
+            a.push({ text: (' ' + text).slice(1), ts: ts });
+            if (a.length > 20) a.shift();
+            displayNames[login] = display || login;
+        }
+
+        function renderText(container, text, emoteTag, offset) {
+            // Twitch emote positions count Unicode code points, not UTF-16 units.
+            var cps = Array.from(text), ranges = [];
+            if (emoteTag) emoteTag.split('/').forEach(function (part) {
+                var c = part.indexOf(':'); if (c < 0) return;
+                var id = part.slice(0, c);
+                part.slice(c + 1).split(',').forEach(function (r) { var ab = r.split('-'), a0 = +ab[0] - (offset || 0), a1 = +ab[1] - (offset || 0); if (a0 >= 0) ranges.push([a0, a1, id]); });
+            });
+            ranges.sort(function (a, b) { return a[0] - b[0]; });
+            var pos = 0, emotes = 0, words = 0;
+            function plain(str) {
+                str.split(/(\s+)/).forEach(function (w) {
+                    if (!w) return;
+                    var url = emoteMap[w];
+                    if (url) { var im = el('img', 'e'); setImg(im, url); im.title = w; container.appendChild(im); emotes++; }
+                    else if (w[0] === '@' && w.length > 1) { var ml = w.replace(/[^@A-Za-z0-9_]+$/, ''), mn = el('span', 'at', ml), lk = ml.slice(1).toLowerCase(); mn.style.background = userColors[lk] || nameColor('', lk); container.appendChild(mn); if (w.length > ml.length) container.appendChild(document.createTextNode(w.slice(ml.length))); words++; }
+                    else { container.appendChild(document.createTextNode(w)); if (w.trim()) words++; }
+                });
+            }
+            ranges.forEach(function (r) {
+                if (r[0] < pos) return;
+                if (r[0] > pos) plain(cps.slice(pos, r[0]).join(''));
+                var name = cps.slice(r[0], r[1] + 1).join(''), im = el('img', 'e');
+                setImg(im, twitchEmoteUrl(r[2])); im.title = name; container.appendChild(im); emotes++;
+                pos = r[1] + 1;
+            });
+            if (pos < cps.length) plain(cps.slice(pos).join(''));
+            return emotes > 0 && words === 0;   // emote-only
+        }
+
+        function row(cls, ts) {
+            var r = el('div', 'r' + (cls ? ' ' + cls : ''));
+            r.appendChild(el('span', 't', ts ? hhmm(ts) : ''));
+            return r;
+        }
+
+        function buildLine(m, hist) {
+            var t = m.tags, login = (m.prefix.split('!')[0] || '').toLowerCase(), text = m.params[1] || '';
+            var isAction = /^\u0001ACTION /.test(text);
+            if (isAction) text = text.slice(8).replace(/\u0001$/, '');
+            var ts = +t['tmi-sent-ts'] || Date.now();
+            var display = t['display-name'] || login, ncol = nameColor(t.color, login);
+            var cls = [];
+            if (hist) cls.push('hist');
+            if (t['first-msg'] === '1') cls.push('ft');
+            if (t['reply-parent-display-name']) cls.push('rp');
+            if (t.bits) cls.push('bits-row');
+            if (highlightRe && login !== (auth && auth.login) && highlightRe.test(text)) cls.push('hl');
+            var r = row(cls.join(' '), ts);
+            r.style.setProperty('--uc', ncol);
+            if (userColors.n++ > 5000) userColors = { n: 0 }; userColors[login] = ncol;
+            r.dataset.id = t.id || ''; r.dataset.login = login; r.dataset.uid = t['user-id'] || '';
+            var body_ = el('div'), emoteOffset = 0;
+            if (t['first-msg'] === '1') { var f = el('div', 'ft-l'); f.appendChild(svgEl(ICON.spark)); f.appendChild(document.createTextNode('First-time chatter')); body_.appendChild(f); }
+            if (t['reply-parent-display-name']) {
+                var rp = el('div', 'rp-l'); rp.appendChild(svgEl(ICON.reply));
+                var sp = el('span'); sp.appendChild(document.createTextNode('Replying to ')); sp.appendChild(el('b', '', '@' + t['reply-parent-display-name']));
+                sp.appendChild(document.createTextNode(': ' + (t['reply-parent-msg-body'] || ''))); rp.appendChild(sp); body_.appendChild(rp);
+                var pm = /^@\S+\s+/.exec(text);   // Twitch prefixes the @name; the reply line already shows it
+                if (pm && text.slice(1).toLowerCase().indexOf(String(t['reply-parent-user-login'] || '').toLowerCase()) === 0) { emoteOffset = Array.from(pm[0]).length; text = text.slice(pm[0].length); }
+            }
+            var c = el('p', 'c');
+            (t.badges || '').split(',').forEach(function (b) {
+                if (!b) return;
+                var p = b.split('/'), bd = badgeFor(p[0], p[1]);
+                if (bd) { var im = el('img', 'bd'); setImg(im, bd.url); im.title = bd.title; c.appendChild(im); }
+            });
+            var nm = el('span', 'n' + (isAction ? ' act' : ''), display);
+            nm.style.color = ncol;
+            c.appendChild(nm);
+            if (!hist && stvStyle(nm, t['user-id']) === 'wait') { r._wait = t['user-id']; r._t = Date.now(); }
+            if (t.bits) {
+                var bi = el('span', 'bits'); bi.appendChild(svgEl(ICON.gem)); bi.appendChild(document.createTextNode(t.bits)); c.appendChild(bi);
+                if (!t.emotes && !emoteOffset) text = text.replace(CHEER_RE, '$1').trim();   // drop "Cheer500" codes (not when emote positions index the text)
+            }
+            var tx = el('span', isAction ? 'act-text' : '');
+            if (isAction) tx.style.color = ncol;
+            if (renderText(tx, text, t.emotes, emoteOffset)) r.classList.add('eo');
+            c.appendChild(tx);
+            body_.appendChild(c);
+            r.appendChild(body_);
+            remember(login, text, ts, display);
+            return r;
+        }
+
+        var CHEER_RE = /(^|\s)(cheer|biblethump|cheerwhal|corgo|uni|showlove|party|seemsgood|pride|kappa|frankerz|heyguys|dansgame|elegiggle|trihard|kreygasm|4head|swiftrage|notlikethis|failfish|vohiyo|pjsalt|mrdestructoid|bday|ripcheer|shamrock|streamlabs|doodlecheer|bitboss|anon|charity|goal|hypecheer)\d+(?=\s|$)/gi;
+        function addChat(m, hist) {
+            var login = (m.prefix.split('!')[0] || '').toLowerCase(), text = m.params[1] || '';
+            if (opt('hideBots') && BOTS.indexOf(login) >= 0) return;
+            if (opt('hideCommands') && text[0] === '!') return;
+            if (!hist) msgTimes.push(Date.now());
+            queue(buildLine(m, hist));
+        }
+
+        var EVENTS = {
+            sub: ['', 'star'], resub: ['', 'star'], giftpaidupgrade: ['', 'star'], anongiftpaidupgrade: ['', 'star'], primepaidupgrade: ['', 'star'],
+            subgift: ['ev-gift', 'gift'], anonsubgift: ['ev-gift', 'gift'], submysterygift: ['ev-gift', 'gift'], anonsubmysterygift: ['ev-gift', 'gift'],
+            raid: ['ev-raid', 'raid'], announcement: ['ev-ann', 'mega'], bitsbadgetier: ['ev-ann', 'star'], viewermilestone: ['ev-ann', 'spark']
+        };
+        function addNotice(m, hist) {
+            var t = m.tags, kind = EVENTS[t['msg-id']] || ['ev-ann', 'spark'];
+            var ev = el('div', 'ev ' + kind[0] + (hist ? ' hist' : ''));
+            var icw = el('div'), ic = el('div', 'ev-ic'); ic.appendChild(svgEl(ICON[kind[1]])); icw.appendChild(ic); ev.appendChild(icw);
+            var b = el('div'), h = el('div', 'ev-h');
+            var sys = t['system-msg'] || '', who = t['display-name'] || t.login || '';
+            if (t['msg-id'] === 'announcement') { h.appendChild(el('b', '', who)); h.appendChild(document.createTextNode('announcement')); }
+            else if (who && sys.indexOf(who) === 0) { h.appendChild(el('b', '', who)); h.appendChild(document.createTextNode(sys.slice(who.length).replace(/^\s*/, ' ').replace(/(subscribed[^.!]*)[.!].*$/, '$1'))); }
+            else h.appendChild(document.createTextNode(sys));
+            var meta = [], plan = t['msg-param-sub-plan'], months = t['msg-param-cumulative-months'];
+            if (plan) meta.push(plan === 'Prime' ? 'Prime' : 'Tier ' + (Math.round(+plan / 1000) || 1));
+            if (+months > 1) meta.push(months + ' months');
+            if (t['msg-param-viewerCount']) meta.push(fmtNum(t['msg-param-viewerCount']) + ' viewers');
+            if (t['msg-param-mass-gift-count']) meta.push(t['msg-param-mass-gift-count'] + ' gifts');
+            if (meta.length) h.appendChild(el('span', 'ev-meta', meta.join(' · ')));
+            b.appendChild(h);
+            if (m.params[1]) { var c = el('p', 'c'); renderText(c, m.params[1], t.emotes); b.appendChild(c); }
+            ev.appendChild(b);
+            queue(ev);
+        }
+        function sysMsg(text, mod, boldPart) {
+            var r = row('sys' + (mod ? ' mod' : ''), 0), c = el('div', 'c'), s = el('span');
+            s.appendChild(document.createTextNode(text));
+            if (boldPart) s.appendChild(el('b', '', boldPart));
+            c.appendChild(s); r.appendChild(c);
+            queue(r);
+        }
+        function onClearChat(m) {
+            var target = m.params[1], dur = m.tags['ban-duration'];
+            if (!target) { sysMsg('Chat was cleared by a moderator', true); return; }
+            chat.querySelectorAll('.r[data-login="' + CSS.escape(target.toLowerCase()) + '"]').forEach(function (r) { r.classList.add('del'); });
+            sysMsg(target + (dur ? ' was timed out for ' + fmtDur(dur * 1000) : ' was banned'), true);
+        }
+        function markDeleted(id) { if (!id) return; var r = chat.querySelector('.r[data-id="' + CSS.escape(id) + '"]'); if (r) r.classList.add('del'); }
+
+        // Batch DOM writes: at most one insert + scroll per frame. Fade only when chat is calm.
+        var pending = [], flushing = false, pinned = true, recentArrivals = [];
+        function queue(node) {
+            pending.push(node);
+            if (pending.length > S.messageLimit) pending.splice(0, pending.length - S.messageLimit);   // hidden page: rAF paused, keep only what would be shown
+            if (!flushing) { flushing = true; requestAnimationFrame(flush); }
+        }
+        function kickFlush() { if (!flushing && pending.length) { flushing = true; requestAnimationFrame(flush); } }
+        function flush() {
+            flushing = false;
+            if (!pending.length) return;
+            var hold = pending.findIndex(function (n) { return n._wait && stvUsers[n._wait] === null && Date.now() - n._t < 700; });
+            if (hold >= 0) { setTimeout(kickFlush, 60); if (hold === 0) return; }
+            var later = hold > 0 ? pending.splice(hold) : null;
+            var now = Date.now();
+            recentArrivals = recentArrivals.filter(function (t) { return now - t < 1500; });
+            var calm = recentArrivals.length + pending.length <= 6;
+            var frag = document.createDocumentFragment();
+            pending.forEach(function (n) {
+                if (calm && !n.classList.contains('hist')) n.classList.add('fadein');
+                recentArrivals.push(now);
+                frag.appendChild(n);
+            });
+            pending = later || [];
+            chat.appendChild(frag);
+            $('empty').style.display = 'none';
+            trim();
+            if (pinned) chat.scrollTop = chat.scrollHeight;
+        }
+        function trim() {
+            var extra = chat.children.length - (pinned ? S.messageLimit : S.messageLimit * 2);
+            while (extra-- > 0) chat.removeChild(chat.firstChild);
+        }
+
+        // Only a real touch/wheel scroll may unpin; layout growth (images loading) must not.
+        var userScroll = false, userScrollT = 0;
+        ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'pointermove'].forEach(function (t) {
+            chat.addEventListener(t, function (e) {
+                if (t === 'pointermove' && !e.buttons) return;
+                userScroll = true; clearTimeout(userScrollT);
+                userScrollT = setTimeout(function () { userScroll = false; }, 800);
+            }, { passive: true });
+        });
+        chat.addEventListener('scroll', function () {
+            var atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 40;
+            if (!atBottom && !userScroll) return;
+            if (atBottom !== pinned) { pinned = atBottom; body.classList.toggle('paused', !pinned); }
+        }, { passive: true });
+        var stickRaf = 0;
+        chat.addEventListener('load', function () { if (pinned && !stickRaf) stickRaf = requestAnimationFrame(function () { stickRaf = 0; if (pinned) chat.scrollTop = chat.scrollHeight; }); }, true);
+        $('more').addEventListener('click', function () { pinned = true; body.classList.remove('paused'); chat.scrollTop = chat.scrollHeight; trim(); });
+
+        // Drag-to-scroll with momentum for mouse-style input (iCUE may deliver touches that way).
+        function dragScroller(scroller, onTap) {
+            var drag = null, glideRaf = 0, suppress = false;
+            scroller.addEventListener('pointerdown', function (e) {
+                if (e.button) return;
+                cancelAnimationFrame(glideRaf);
+                drag = { id: e.pointerId, y: e.clientY, top: scroller.scrollTop, moved: false, lastY: e.clientY, lastT: e.timeStamp, v: 0, mouse: e.pointerType !== 'touch' };
+            });
+            window.addEventListener('pointermove', function (e) {
+                if (!drag || e.pointerId !== drag.id) return;
+                var dy = e.clientY - drag.y;
+                if (!drag.moved && Math.abs(dy) > 10) drag.moved = true;
+                if (drag.moved && drag.mouse) {
+                    scroller.scrollTop = drag.top - dy;
+                    var dt = Math.max(1, e.timeStamp - drag.lastT);
+                    drag.v = Math.max(-4, Math.min(4, 0.7 * ((drag.lastY - e.clientY) / dt) + 0.3 * drag.v));
+                    drag.lastY = e.clientY; drag.lastT = e.timeStamp;
+                }
+            });
+            window.addEventListener('pointerup', function (e) {
+                if (!drag || e.pointerId !== drag.id) return;
+                var d = drag; drag = null;
+                if (!d.moved) return;
+                suppress = true; setTimeout(function () { suppress = false; }, 60);
+                if (d.mouse && Math.abs(d.v) > 0.05 && e.timeStamp - d.lastT < 120) {
+                    var v = d.v, last = performance.now();
+                    var step = function (t) {
+                        var dt = Math.min(48, t - last); last = t;
+                        scroller.scrollTop += v * dt; v *= Math.pow(0.94, dt / 16);
+                        if (Math.abs(v) > 0.02) glideRaf = requestAnimationFrame(step);
+                    };
+                    glideRaf = requestAnimationFrame(step);
+                }
+            });
+            window.addEventListener('pointercancel', function (e) { if (drag && e.pointerId === drag.id) drag = null; });
+            scroller.addEventListener('click', function (e) { if (!suppress && onTap) onTap(e); }, true);
+            return { suppressed: function () { return suppress; } };
+        }
+        var chatDrag = dragScroller(chat, null);
+        chat.addEventListener('click', function (e) {
+            if (chatDrag.suppressed()) return;
+            var r = e.target.closest('.r'); if (!r || !r.dataset.login) return;
+            r.classList.add('tapped'); setTimeout(function () { r.classList.remove('tapped'); }, 250);
+            openCard(r.dataset.login, r.dataset.uid, r.dataset.id, r);
+        });
+
+        // ── Channel selection ─────────────────────────────────────
+        var playingChannel = '';
+        function chooseChannel() {
+            var follow = 'follow' in L ? L.follow : S.followPlaying;
+            var want = L.pin || (follow && playingChannel) || S.channel || room.login;
+            if (want && want !== room.login) joinChannel(want);
+            if (!want) $('empty').style.display = '';
+        }
+        // ── Stream preview: muted low-quality live video, toggled by the eye button ──
+        // Uses Twitch's web player token (public, no sign-in). Playlists go through the local
+        // server because Twitch refuses the widget's "null" origin; video segments load directly.
+        var pvSock = null, pvFor = '', pvRetry = 0, pvBusy = 0, pvFrames = [], pvBase = null, pvRaf = 0;
+        // Frames arrive ~0.3 s early with their stream time; each is drawn on the screen refresh it's due,
+        // so 60 fps stays even (Windows timers on the server are too coarse to space frames well).
+        var pvLastNow = 0;
+        function pvDraw(now) {
+            pvRaf = requestAnimationFrame(pvDraw);
+            var dt = now - (pvLastNow || now); pvLastNow = now;
+            // nothing new to show yet: hold the clock so a late chunk pauses briefly instead of skipping ahead
+            if (pvBase && (!pvFrames.length || pvFrames[0].t > pvBase.t + (now - pvBase.wall) / 1000 + 0.5)) pvBase.wall += dt;
+            if (!pvFrames.length) return;
+            var clock = pvBase ? pvBase.t + (now - pvBase.wall) / 1000 : 0;
+            if (!pvBase || pvFrames[0].t - clock > 1 || clock - pvFrames[pvFrames.length - 1].t > 1) {   // start or jump: re-sync
+                pvBase = { wall: now, t: pvFrames[0].t }; clock = pvFrames[0].t;
+            }
+            var pick = null;
+            while (pvFrames.length && pvFrames[0].t <= clock) { if (pick) pick.bm.close(); pick = pvFrames.shift(); }
+            if (!pick) return;
+            var cv = $('pv'), bm = pick.bm;
+            if (cv.width !== bm.width || cv.height !== bm.height) { cv.width = bm.width; cv.height = bm.height; }
+            cv.getContext('2d').drawImage(bm, 0, 0); bm.close();
+            if (!cv.classList.contains('live')) { cv.classList.add('live'); $('pv-msg').textContent = ''; }
+        }
+        function previewStop() {
+            clearTimeout(pvRetry); pvFor = '';
+            if (pvSock) { pvSock.onclose = pvSock.onmessage = null; try { pvSock.close(); } catch (e) {} pvSock = null; }
+            $('pv').classList.remove('live'); $('pv-lat').textContent = '';
+            cancelAnimationFrame(pvRaf); pvRaf = 0; pvBase = null; pvBusy = 0;
+            pvFrames.forEach(function (f) { f.bm.close(); }); pvFrames = [];
+        }
+        // The server decodes the stream (iCUE can't play Twitch video) and sends JPEG frames.
+        function previewSync() {
+            var want = L.preview && room.live && room.login;
+            body.classList.toggle('pv-on', !!L.preview); $('eyebtn').classList.toggle('on', !!L.preview); pvSize();
+            if (!want) { previewStop(); return; }
+            if (pvFor === room.login && pvSock) return;   // already showing this channel
+            previewStop(); pvFor = room.login;
+            $('pv-msg').textContent = 'Loading stream…';
+            var s;
+            try { s = new WebSocket('ws://localhost:' + S.serverPort); } catch (e) { return; }
+            pvSock = s; s.binaryType = 'arraybuffer';
+            s.onopen = function () { s.send(JSON.stringify({ type: 'preview', channel: pvFor })); pvSoundSync(); };
+            s.onmessage = function (ev) {
+                if (typeof ev.data === 'string') {
+                    var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+                    if (m.type === 'pvlat') $('pv-lat').textContent = m.s < 1 ? '<1s delay' : m.s.toFixed(1) + 's delay';   // Twitch's clock can run slightly ahead of the PC's
+                    if (m.type === 'pverr') { diag('preview error', m.msg); $('pv-msg').textContent = 'Preview unavailable (' + m.msg + ')'; }
+                    return;
+                }
+                if (new Uint8Array(ev.data, 0, 1)[0] !== 1) return;
+                var ft = new DataView(ev.data, 1, 8).getFloat64(0, true);
+                if (pvFrames.length + pvBusy > 60) return;   // way behind: drop
+                pvBusy++;
+                createImageBitmap(new Blob([new Uint8Array(ev.data, 9)], { type: 'image/jpeg' })).then(function (bm) {
+                    pvBusy--;
+                    if (pvSock !== s) { bm.close(); return; }
+                    var at = pvFrames.length;   // keep in time order (decodes can finish out of order)
+                    while (at > 0 && pvFrames[at - 1].t > ft) at--;
+                    pvFrames.splice(at, 0, { t: ft, bm: bm });
+                    if (!pvRaf) pvRaf = requestAnimationFrame(pvDraw);
+                }).catch(function () { pvBusy--; });
+            };
+            s.onclose = function () {
+                if (pvSock !== s) return;
+                pvSock = null; pvFor = ''; $('pv-msg').textContent = 'Reconnecting…';
+                pvRetry = setTimeout(previewSync, 5000);
+            };
+        }
+        // Preview sound: iCUE mutes widget audio, so the server plays it through Windows
+        var pvDevices = null;   // Windows outputs, fetched from the server when settings open
+        function pvSoundSync() {
+            body.classList.toggle('pv-sound', !!L.pvSound);
+            if (pvSock && pvSock.readyState === 1) pvSock.send(JSON.stringify({ type: 'pvaudio', on: !!L.pvSound, device: L.pvDevice || '', volume: L.pvVolume != null ? L.pvVolume : 80 }));
+        }
+        // Controls fade out after a few seconds; touching the stream or the controls brings them back
+        var pvIdleT = 0;
+        function pvWake() {
+            body.classList.remove('pv-idle'); clearTimeout(pvIdleT);
+            pvIdleT = setTimeout(function () { body.classList.add('pv-idle'); }, 3000);
+        }
+        ['pointerdown', 'pointermove'].forEach(function (ev) { $('preview').addEventListener(ev, pvWake); $('pvctl').addEventListener(ev, pvWake); });
+        pvWake();
+        function pvCtlPlace() {   // theater: chat column ends above the chat box
+            if (body.classList.contains('theater')) root.style.setProperty('--th-bot', $('composer').getBoundingClientRect().height + 'px');
+        }
+        $('pvctl').addEventListener('click', function (e) { e.stopPropagation(); });   // don't resize the preview
+        $('pv-vol').value = L.pvVolume != null ? L.pvVolume : 80;
+        $('pv-vol').addEventListener('input', function () {
+            L.pvVolume = +this.value; saveLocal(); pvSoundSync();
+        });
+        $('pv-full').addEventListener('click', function () {
+            L.theater = !L.theater; if (!L.theater) delete L.theater; saveLocal();
+            body.classList.toggle('theater', !!L.theater); pvSize();
+        });
+        body.classList.toggle('theater', !!L.theater);
+        $('pv-snd').addEventListener('click', function (e) {
+            e.stopPropagation();   // don't also resize the preview
+            L.pvSound = !L.pvSound; if (!L.pvSound) delete L.pvSound; saveLocal(); pvSoundSync();
+        });
+        body.classList.toggle('pv-sound', !!L.pvSound);
+
+        // Keep chat on the newest message when the preview (or anything else) changes its height
+        new ResizeObserver(function () { if (pinned) chat.scrollTop = chat.scrollHeight; }).observe(chat);
+
+        // Preview size slider (% of the widget's height; chat always keeps a couple of lines)
+        if (L.pvh) L.pvh = Math.max(50, Math.min(100, Math.round(L.pvh / 25) * 25));   // levels: 50 / 75 / 100
+        // Tap the stream to step through the sizes
+        $('preview').addEventListener('click', function () {
+            if (body.classList.contains('theater')) return;
+            L.pvh = (L.pvh || 50) >= 100 ? 50 : (L.pvh || 50) + 25; saveLocal(); pvSize(); pvWake();
+        });
+        function pvSize() {
+            $('wrap').style.marginTop = ''; body.classList.remove('pv-overlap', 'pv-big', 'pv-full');
+            var pv = $('preview'); if (getComputedStyle(pv).display === 'none') return;
+            if (body.classList.contains('theater')) { requestAnimationFrame(pvCtlPlace); return; }
+            var used = 0;
+            ['hdr', 'composer', 'suggest'].forEach(function (id) { used += $(id).getBoundingClientRect().height; });
+            var lvl = L.pvh || 50, big = lvl >= 75, full = lvl >= 100;   // 75: no chat box; 100: no chat at all
+            body.classList.toggle('pv-full', full);
+            body.classList.toggle('pv-big', big);   // largest size hides the chat box (CSS) before measuring
+            used = 0; ['hdr', 'composer', 'suggest'].forEach(function (id) { used += $(id).getBoundingClientRect().height; });
+            // room for a set number of compact chat lines at the fixed 18px preview text size: 50 → 4, 75 → 2
+            var rows = { 50: 4, 75: 2 }[lvl] || 4;
+            var minChat = rows * 34 + 20;
+            document.querySelectorAll('#pv-dots i').forEach(function (d, i) { d.classList.toggle('on', i === (lvl - 50) / 25); });   // always keep a few lines of chat visible
+            var h = Math.min(full ? 1e9 : innerHeight * lvl / 100, innerHeight - used - (full ? 0 : minChat) - 12, (innerWidth - 20) * 9 / 16);
+            pv.style.height = Math.max(90, h) + 'px'; pv.style.width = Math.max(160, h * 16 / 9) + 'px';
+            requestAnimationFrame(pvCtlPlace);
+        }
+        window.addEventListener('resize', pvSize);
+        pvSize();
+        $('eyebtn').addEventListener('click', function () { L.preview = !L.preview; if (!L.preview) delete L.preview; saveLocal(); previewSync(); });
+
+        // Chat speed: messages in the last minute
+        var msgTimes = [];
+        setInterval(function () {
+            var cut = Date.now() - 60000;
+            while (msgTimes.length && msgTimes[0] < cut) msgTimes.shift();
+            $('s-rate').textContent = msgTimes.length ? fmtNum(msgTimes.length) + '/m' : '–';
+        }, 2000);
+        function joinChannel(login) {
+            msgTimes = [];
+            clearTimeout(ircRetry);
+            if (irc) { irc.onclose = irc.onmessage = irc.onerror = null; try { irc.close(); } catch (e) {} irc = null; }
+            pending = []; ircBackoff = 1000;
+            diag('join', login, 'setting=' + S.channel, 'playing=' + playingChannel, 'size=' + innerWidth + 'x' + innerHeight, 'bgA=' + S.transparency);
+            room = { login: login, id: '', live: false, startedAt: 0, info: null };
+            setTimeout(previewSync, 0);
+            L.recent = [login].concat((L.recent || []).filter(function (c) { return c !== login; })).slice(0, 8); saveLocal();
+            badges.channel = {}; dropScope('channel'); delete ESETS['twitch:user']; userMsgs = Object.create(null); displayNames = Object.create(null); chatterCount = 0;
+            modes = { slow: 0, emote: false, sub: false, follow: -1, shield: false }; renderModes();
+            isMod = false; body.classList.remove('is-mod', 'is-live');
+            chat.textContent = ''; pinned = true; body.classList.remove('paused');
+            $('chname').textContent = login; fitName(); $('game').textContent = ''; $('stitle').textContent = ''; $('avatar').removeAttribute('src');
+            $('s-viewers').textContent = '–'; $('verified').classList.add('hidden');
+            $('empty').style.display = 'none';
+            sysMsg('Joined ', false, login);
+            clearInterval(infoTimer); infoTimer = setInterval(refreshInfo, 60000);
+            extrasReady = Promise.resolve();
+            var hist = getJSON('https://recent-messages.robotty.de/api/v2/recent-messages/' + encodeURIComponent(login) + '?limit=60').catch(function () { return null; });
+            var user = getJSON('https://api.ivr.fi/v2/twitch/user?login=' + encodeURIComponent(login)).catch(function () { return null; });
+            // Wait (briefly) for badges/emotes so the history renders with them, then go live.
+            user.then(function (d) {
+                applyInfo(login, d && d[0]);
+                return Promise.race([Promise.all([globalReady, extrasReady]), new Promise(function (r) { setTimeout(r, 3000); })]);
+            }).then(function () { return hist; }).then(function (d) {
+                if (login !== room.login) return;
+                ((d && d.messages) || []).forEach(function (line) { handleIRC(parseIRC(line), true); });
+                connectIRC();
+            });
+            updateComposer();
+        }
+
+        // Follow the Twitch channel the visualizer server sees playing (its "artist" is the channel name).
+        var np = null, npPort = '', npRetry = 0;
+        function connectNowPlaying() {
+            clearTimeout(npRetry);
+            if (np) { np.onclose = np.onmessage = null; try { np.close(); } catch (e) {} }
+            npPort = S.serverPort;
+            var sock;
+            try { sock = new WebSocket('ws://localhost:' + npPort); } catch (e) { return; }
+            np = sock;
+            sock.onopen = function () { sock.send(JSON.stringify({ type: 'config', bands: false })); };
+            sock.onmessage = function (ev) {
+                var d = ev.data;
+                if (typeof d !== 'string') return;
+                var m; try { m = JSON.parse(d); } catch (e) { return; }
+                if (m.type === 'pvdevices') { pvDevices = m.list || []; if (sheetKind === 'settings') renderSettings(); return; }
+                if (m.type !== 'media') return;
+                var ch = m.platform === 'twitch' && m.playing ? cleanLogin(m.artist) : '';
+                if (ch && ch !== playingChannel) { playingChannel = ch; chooseChannel(); }   // keep the last channel when something else plays
+            };
+            sock.onclose = function () { if (np === sock) npRetry = setTimeout(connectNowPlaying, 5000); };
+        }
+
+        // ── Twitch account (device-code sign-in) ──────────────────
+        var SCOPES = 'moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:shield_mode user:read:moderated_channels user:write:chat user:read:emotes user:read:follows';
+        var AUTH_KEY = 'xechat.auth', auth = null, isMod = false;
+        try { auth = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch (e) { auth = null; }
+        function saveAuth() { try { auth ? localStorage.setItem(AUTH_KEY, JSON.stringify(auth)) : localStorage.removeItem(AUTH_KEY); } catch (e) {} highlightRe = buildHighlight(); updateComposer(); }
+        function form(o) { return Object.keys(o).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(o[k]); }).join('&'); }
+        function tokenReq(params) { return getJSON('https://id.twitch.tv/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form(params) }); }
+        var refreshing = null;
+        function storedAuth() { try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch (e) { return null; } }
+        function refreshToken() {
+            if (!auth || !auth.refresh) return Promise.reject(new Error('Signed out'));
+            // Public-client refresh tokens rotate and work once. Another copy of this widget
+            // (e.g. iCUE's preview) may already have refreshed: adopt its tokens instead.
+            var st = storedAuth();
+            if (st && st.refresh && st.refresh !== auth.refresh && st.uid === auth.uid) { auth = st; return Promise.resolve(); }
+            var used = auth.refresh;
+            if (!refreshing) refreshing = tokenReq({ client_id: auth.clientId, grant_type: 'refresh_token', refresh_token: used })
+                .then(function (t) { auth.access = t.access_token; auth.refresh = t.refresh_token || auth.refresh; saveAuth(); })
+                .catch(function (e) {
+                    var st2 = storedAuth();
+                    if (st2 && st2.refresh && st2.refresh !== used) { auth = st2; return; }   // the other copy won the race
+                    if (e.status === 400 || e.status === 401) { clearSession(); throw new Error('Twitch sign-in expired, please sign in again'); }
+                    throw e;
+                })
+                .finally(function () { refreshing = null; });
+            return refreshing;
+        }
+        async function helix(method, path, bodyObj, retried) {
+            if (!auth || !auth.access) throw new Error('Sign in to Twitch first');
+            var hopts = {
+                method: method,
+                headers: { 'Client-Id': auth.clientId, 'Authorization': 'Bearer ' + auth.access, 'Content-Type': 'application/json' },
+                body: bodyObj ? JSON.stringify(bodyObj) : undefined
+            }, r;
+            try { r = await fetch('https://api.twitch.tv/helix' + path, hopts); }
+            catch (e) { r = await viaServer('https://api.twitch.tv/helix' + path, hopts); }   // iCUE blocked it
+            if (r.status === 401 && !retried) { await refreshToken(); return helix(method, path, bodyObj, true); }
+            if (!r.ok) { var msg = 'Twitch error ' + r.status; try { msg = (await r.json()).message || msg; } catch (e) {} var er = new Error(msg); er.status = r.status; throw er; }
+            return r.status === 204 ? null : r.json();
+        }
+        async function checkMod() {
+            isMod = false; body.classList.remove('is-mod');
+            if (!auth || !auth.access || !room.id) return;
+            var id = room.id;
+            try {
+                var mod = auth.uid === id;
+                if (!mod) {
+                    var cursor = '', n = 0;
+                    do {
+                        var d = await helix('GET', '/moderation/channels?user_id=' + auth.uid + '&first=100' + (cursor ? '&after=' + cursor : ''));
+                        if ((d.data || []).some(function (c) { return c.broadcaster_id === id; })) { mod = true; break; }
+                        cursor = d.pagination && d.pagination.cursor;
+                    } while (cursor && ++n < 10);
+                }
+                if (id !== room.id) return;
+                isMod = mod;
+                body.classList.toggle('is-mod', isMod);
+                if (isMod) helix('GET', '/moderation/shield_mode' + modQS()).then(function (d) { modes.shield = !!(d.data && d.data[0] && d.data[0].is_active); renderModes(); }).catch(function () {});
+            } catch (e) { /* not fatal: chat still works */ }
+        }
+        var myAvatar = '';
+        function loadMyAvatar() {
+            if (!auth || !auth.login) return;
+            getJSON('https://api.ivr.fi/v2/twitch/user?login=' + encodeURIComponent(auth.login)).then(function (d) {
+                var u = d && d[0]; if (u && u.logo) { myAvatar = u.logo; updateComposer(); }
+            }).catch(function () {});
+        }
+
+        // ── Composer ──────────────────────────────────────────────
+        function signedIn() { return !!(auth && auth.access); }
+        function updateComposer() {
+            var on = signedIn();
+            body.classList.toggle('signed-out', !on);
+            input.readOnly = !on;
+            input.placeholder = !on ? 'Sign in to chat' : !room.login ? 'No channel' : 'Send a message';
+            $('send').textContent = on ? 'Chat' : 'Sign in';
+            var me = $('me');
+            if (on && myAvatar) {
+                if (me.tagName !== 'IMG') { var im = el('img'); im.id = 'me'; me.replaceWith(im); me = im; }
+                setImg(me, myAvatar);
+            }
+        }
+        input.addEventListener('focus', function () { $('field').classList.add('focus'); if (!signedIn()) { input.blur(); openLogin(); } });
+        input.addEventListener('blur', function () { $('field').classList.remove('focus'); });
+        $('composer').addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (!signedIn()) { openLogin(); return; }
+            var text = input.value.trim();
+            if (!text) return;
+            if (!room.id) { toast('Not connected to a channel yet', true); return; }
+            var btn = $('send'); btn.disabled = true;
+            helix('POST', '/chat/messages', { broadcaster_id: room.id, sender_id: auth.uid, message: text })
+                .then(function (d) {
+                    var r = d && d.data && d.data[0];
+                    if (r && r.is_sent === false) toast((r.drop_reason && r.drop_reason.message) || 'Message not sent', true);
+                    else { input.value = ''; closeSuggest(); closePicker(); }
+                })
+                .catch(function (err) { toast(err.status === 401 ? 'Sign in again to chat' : err.message, true); })
+                .finally(function () { btn.disabled = false; });
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Tab' && suggestions.length) { e.preventDefault(); acceptSuggestion(0); }
+            else if (e.key === 'Escape') { closeSuggest(); closePicker(); }
+        });
+        function insertAtCaret(text) {
+            var s = input.selectionStart == null ? input.value.length : input.selectionStart, e = input.selectionEnd == null ? s : input.selectionEnd;
+            var before = input.value.slice(0, s), after = input.value.slice(e);
+            var pre = before && !/\s$/.test(before) ? ' ' : '';
+            var ins = pre + text + ' ';
+            input.value = (before + ins + after).slice(0, 500);
+            var p = Math.min(500, before.length + ins.length);
+            input.setSelectionRange(p, p);
+            closeSuggest();
+        }
+
+        // Suggestions while typing: emote names, or @chatters.
+        var suggestions = [], sgWord = null;
+        function currentWord() {
+            var p = input.selectionStart == null ? input.value.length : input.selectionStart, v = input.value.slice(0, p), m = /(\S+)$/.exec(v);
+            return m ? { start: p - m[1].length, end: p, word: m[1] } : null;
+        }
+        function allEmoteNames() {
+            var seen = {}, out = [];
+            Object.keys(ESETS).forEach(function (k) { ESETS[k].list.forEach(function (e) { if (!seen[e.name]) { seen[e.name] = 1; out.push(e); } }); });
+            return out;
+        }
+        function updateSuggest() {
+            var w = signedIn() ? currentWord() : null;
+            suggestions = [];
+            if (w && w.word.length >= 2) {
+                var q = w.word.toLowerCase();
+                if (q[0] === '@') {
+                    q = q.slice(1);
+                    Object.keys(displayNames).forEach(function (lg) { if (q && lg.indexOf(q) === 0 && suggestions.length < 8) suggestions.push({ text: '@' + displayNames[lg] }); });
+                } else {
+                    var pre = [], sub = [];
+                    allEmoteNames().forEach(function (e) { var n = e.name.toLowerCase(); if (n.indexOf(q) === 0) pre.push(e); else if (q.length >= 3 && n.indexOf(q) > 0) sub.push(e); });
+                    var raw = w.word;   // exact-case prefix first, then shorter names
+                    pre.sort(function (a, b) { return (b.name.indexOf(raw) === 0) - (a.name.indexOf(raw) === 0) || a.name.length - b.name.length || (a.name < b.name ? -1 : 1); });
+                    suggestions = pre.concat(sub).slice(0, 10).map(function (e) { return { text: e.name, url: e.url }; });
+                }
+            }
+            sgWord = w;
+            var box = $('suggest'); box.textContent = '';
+            suggestions.forEach(function (s, i) {
+                var b = el('button', 'sg' + (i === 0 ? ' first' : '')); b.type = 'button';
+                if (s.url) { var im = el('img'); setImg(im, s.url); b.appendChild(im); }
+                b.appendChild(document.createTextNode(s.text));
+                b.addEventListener('pointerdown', function (e) { e.preventDefault(); });   // keep the input focused
+                b.addEventListener('click', function () { acceptSuggestion(i); });
+                box.appendChild(b);
+            });
+            box.classList.toggle('open', suggestions.length > 0);
+        }
+        function acceptSuggestion(i) {
+            var s = suggestions[i], w = sgWord; if (!s || !w) return;
+            var v = input.value, ins = s.text + ' ';
+            input.value = (v.slice(0, w.start) + ins + v.slice(w.end).replace(/^\s+/, '')).slice(0, 500);
+            var p = Math.min(500, w.start + ins.length); input.setSelectionRange(p, p); input.focus();
+            closeSuggest();
+        }
+        function closeSuggest() { suggestions = []; $('suggest').classList.remove('open'); }
+        input.addEventListener('input', updateSuggest);
+        input.addEventListener('click', updateSuggest);
+
+        // ── Emote picker ──────────────────────────────────────────
+        var pickerOpen = false, ptab = L.ptab || 'channel', pickerPicked = '';
+        var EMOJI = ('😂 🤣 😭 😅 😊 😍 🥰 😘 😎 🤔 🙄 😏 😬 😳 🥺 😤 😡 🤯 😱 🤡 💀 👀 🫡 🫠 🤝 👍 👎 👏 🙏 💪 ✌️ 🤞 👋 🫶 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💔 💯 🔥 ✨ ⭐ 🌟 💥 🎉 🎊 🏆 🎮 🕹️ 🎧 🎵 🎶 📈 📉 💰 💸 🍕 🍔 🍟 🌮 🍿 🍩 🍪 ☕ 🍺 🥤 🐐 🐸 🐱 🐶 🐻 🦊 🐼 🐵 🙈 🦄 🐍 🦀 🍑 🍆 🌶️ 🍀 🌈 ☀️ 🌙 ⚡ ❄️ 💧 🚀 💎 🗿 🧠 👑 💤 ❓ ❗ ✅ ❌ ⚠️ 🔴 🟢 🟣 🆗 🆒 🆙').split(' ');
+        var ORDER = ['twitch', '7tv', 'bttv', 'ffz'];
+        function pickerSets() {
+            var ch = room.info ? (room.info.displayName || room.login) : room.login || 'Channel';
+            var sets = function (filter) { return Object.keys(ESETS).map(function (k) { return ESETS[k]; }).filter(function (s) { return s.list.length && filter(s); }); };
+            var label = { '7tv': '7TV', bttv: 'BTTV', ffz: 'FFZ', twitch: 'Twitch' };
+            var sec = function (title, s) { return { title: title, list: s.list }; };
+            return {
+                recent: [{ title: 'Recently used', list: (L.recentEmotes || []) }],
+                channel: sets(function (s) { return s.scope === 'channel'; }).sort(function (a, b) { return ORDER.indexOf(a.provider) - ORDER.indexOf(b.provider); }).map(function (s) { return sec(ch + ' · ' + label[s.provider], s); }),
+                '7tv': sets(function (s) { return s.provider === '7tv'; }).sort(function (a, b) { return a.scope === 'channel' ? -1 : 1; }).map(function (s) { return sec((s.scope === 'channel' ? ch : 'Global') + ' · 7TV', s); }),
+                bttv: sets(function (s) { return s.provider === 'bttv'; }).sort(function (a, b) { return a.scope === 'channel' ? -1 : 1; }).map(function (s) { return sec((s.scope === 'channel' ? ch : 'Global') + ' · BTTV', s); }),
+                ffz: sets(function (s) { return s.provider === 'ffz'; }).sort(function (a, b) { return a.scope === 'channel' ? -1 : 1; }).map(function (s) { return sec((s.scope === 'channel' ? ch : 'Global') + ' · FFZ', s); }),
+                twitch: sets(function (s) { return s.provider === 'twitch'; }).map(function (s) { return sec(s.scope === 'user' ? 'Your Twitch emotes' : s.scope === 'channel' ? ch + ' · Twitch' : 'Twitch global', s); }),
+                emoji: [{ title: 'Emoji', list: EMOJI.map(function (e) { return { name: e, emoji: true }; }) }]
+            };
+        }
+        var TABS = [['recent', ICON.clock], ['channel', null], ['7tv', '7TV'], ['bttv', 'BTTV'], ['ffz', 'FFZ'], ['twitch', 'Twitch'], ['emoji', ICON.smile]];
+        function renderTabs() {
+            var nav = $('ptabs'); nav.textContent = '';
+            TABS.forEach(function (t) {
+                var b = el('button', ptab === t[0] ? 'on' : ''); b.type = 'button'; b.setAttribute('aria-label', t[0]);
+                if (t[0] === 'channel') { var im = el('img'); if (room.info && room.info.logo) setImg(im, room.info.logo); b.appendChild(im); }
+                else if (t[1][0] === '<') b.appendChild(svgEl(t[1]));
+                else b.textContent = t[1];
+                b.addEventListener('click', function () { ptab = t[0]; L.ptab = ptab; saveLocal(); $('pq').value = ''; renderTabs(); renderPicker(); $('pbody').scrollTop = 0; });
+                nav.appendChild(b);
+            });
+        }
+        var lazy = null;
+        function renderPicker() {
+            var bodyEl = $('pbody'); bodyEl.textContent = '';
+            if (lazy) lazy.disconnect();
+            lazy = window.IntersectionObserver ? new IntersectionObserver(function (ents) {
+                ents.forEach(function (en) { if (en.isIntersecting) { var im = en.target; lazy.unobserve(im); setImg(im, im.dataset.src); } });
+            }, { root: bodyEl, rootMargin: '160px' }) : null;
+            var q = $('pq').value.trim().toLowerCase(), all = pickerSets(), sections;
+            if (q) {
+                var seen = {}, hits = [];
+                Object.keys(all).forEach(function (k) { if (k === 'recent') return; all[k].forEach(function (s) { s.list.forEach(function (e) { if (!seen[e.name] && e.name.toLowerCase().indexOf(q) >= 0) { seen[e.name] = 1; hits.push(e); } }); }); });
+                hits.sort(function (a, b) { return a.name.toLowerCase().indexOf(q) - b.name.toLowerCase().indexOf(q); });
+                sections = [{ title: 'Results for “' + q + '”', list: hits.slice(0, 300) }];
+            } else sections = all[ptab] || [];
+            var any = false;
+            sections.forEach(function (s) {
+                if (!s.list.length) return;
+                any = true;
+                var h = el('div', 'ph'); h.appendChild(el('b', '', s.title)); h.appendChild(el('span', '', s.list.length + (s.list.length === 1 ? ' emote' : ' emotes'))); bodyEl.appendChild(h);
+                var g = el('div', 'pg');
+                s.list.forEach(function (e) {
+                    var b = el('button', 'em' + (e.name === pickerPicked ? ' picked' : '')); b.type = 'button'; b.title = e.name;
+                    if (e.emoji) b.appendChild(el('span', 'emoji', e.name));
+                    else { var im = el('img'); im.alt = ''; im.dataset.src = e.url; if (lazy) lazy.observe(im); else setImg(im, e.url); b.appendChild(im); }
+                    b.addEventListener('click', function () { if (!pickerDrag.suppressed()) pickEmote(e, b); });
+                    g.appendChild(b);
+                });
+                bodyEl.appendChild(g);
+            });
+            if (!any) bodyEl.appendChild(el('div', 'pempty', q ? 'No emotes match “' + q + '”' : ptab === 'recent' ? 'Emotes you use will show up here.' : ptab === 'twitch' && !signedIn() ? 'Sign in to see your Twitch emotes.' : 'No emotes here yet.'));
+        }
+        function pickEmote(e, btn) {
+            if (!signedIn()) { openLogin(); return; }
+            insertAtCaret(e.name);
+            pickerPicked = e.name;
+            document.querySelectorAll('#pbody .em.picked').forEach(function (x) { x.classList.remove('picked'); }); btn.classList.add('picked');
+            if (!e.emoji) { L.recentEmotes = [{ name: e.name, url: e.url }].concat((L.recentEmotes || []).filter(function (x) { return x.name !== e.name; })).slice(0, 32); saveLocal(); }
+        }
+        var pickerDrag = dragScroller($('pbody'), null);
+        function openPicker() { pickerOpen = true; $('picker').classList.add('open'); $('emobtn').classList.add('on'); renderTabs(); renderPicker(); }
+        function closePicker() { pickerOpen = false; $('picker').classList.remove('open'); $('emobtn').classList.remove('on'); }
+        $('emobtn').addEventListener('click', function () { if (pickerOpen) closePicker(); else { closeSheet(); openPicker(); } });
+        $('pq').addEventListener('input', renderPicker);
+        $('wrap').addEventListener('pointerdown', function () { if (pickerOpen) closePicker(); });
+
+        // ── Sheets: one bottom sheet, filled per use ──────────────
+        var sheetKind = '';
+        function openSheet(kind) { closePicker(); sheetKind = kind; $('sheet').classList.add('open'); $('catcher').classList.add('open'); $('sheet').scrollTop = 0; }
+        function closeSheet() { sheetKind = ''; clearTimeout(loginPoll); $('sheet').classList.remove('open'); $('catcher').classList.remove('open'); }
+        $('catcher').addEventListener('click', closeSheet);
+        function sheetTop(box, title, sub, img) {
+            var top = el('div', 'sh-top');
+            if (img !== undefined) { var av = el('img', 'card-av'); if (img) setImg(av, img); top.appendChild(av); }
+            var t = el('div'); t.appendChild(el('div', 'sh-title', title)); if (sub != null) t.appendChild(el('div', 'sh-sub', sub)); top.appendChild(t);
+            var x = el('button', 'sh-x'); x.type = 'button'; x.appendChild(svgEl(ICON.x)); x.addEventListener('click', closeSheet); top.appendChild(x);
+            box.appendChild(top);
+            return t;
+        }
+        function chip(label, on, fn, cls) { var b = el('button', 'chip' + (on ? ' on' : '') + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.addEventListener('click', fn); return b; }
+        function armed(label, fn) {   // destructive: tap twice
+            var b = chip(label, false, function () {
+                if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Tap again'; setTimeout(function () { b.classList.remove('armed'); b.textContent = label; }, 3000); return; }
+                fn();
+            }, 'danger');
+            return b;
+        }
+        // Swipe a sheet down to close it (mouse-style drag or real touch).
+        (function swipeToClose(sheet) {
+            var st = null;
+            function start(y) { if (sheet.scrollTop <= 0) st = { y: y, dy: 0 }; }
+            function move(y) { if (!st) return; st.dy = Math.max(0, y - st.y); if (st.dy > 8) sheet.style.transform = 'translateY(' + st.dy + 'px)'; }
+            var swallow = false;
+            function end() {
+                if (!st) return;
+                var dy = st.dy; st = null; sheet.style.transform = '';
+                if (dy > 8) { swallow = true; setTimeout(function () { swallow = false; }, 80); }
+                if (dy > 90) closeSheet();
+            }
+            sheet.addEventListener('click', function (e) { if (swallow) { e.stopPropagation(); e.preventDefault(); } }, true);
+            sheet.addEventListener('pointerdown', function (e) { if (e.pointerType !== 'touch' && !e.target.closest('input')) start(e.clientY); });
+            window.addEventListener('pointermove', function (e) { if (e.pointerType !== 'touch') move(e.clientY); });
+            window.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch') end(); });
+            sheet.addEventListener('touchstart', function (e) { start(e.touches[0].clientY); }, { passive: true });
+            sheet.addEventListener('touchmove', function (e) { move(e.touches[0].clientY); }, { passive: true });
+            sheet.addEventListener('touchend', end);
+        })($('sheet'));
+
+        // Settings sheet
+        $('meta').addEventListener('click', function () { openSheet('settings'); renderSettings(); });   // tap the channel name to switch
+        $('qbtn').addEventListener('click', function () { if (sheetKind === 'settings') closeSheet(); else { openSheet('settings'); renderSettings(); } });
+        // Followed channels, live first (like Chatterino). Cached for a minute.
+        var followed = null, followedAt = 0;
+        async function loadFollowed() {
+            if (followed && Date.now() - followedAt < 60000) return followed;
+            var res = await Promise.all([
+                helix('GET', '/streams/followed?user_id=' + auth.uid + '&first=100'),
+                helix('GET', '/channels/followed?user_id=' + auth.uid + '&first=100')
+            ]);
+            var live = res[0].data.map(function (x) { return { login: x.user_login, name: x.user_name, viewers: x.viewer_count, game: x.game_name }; });
+            var isLive = {}; live.forEach(function (x) { isLive[x.login] = 1; });
+            var off = res[1].data.filter(function (x) { return !isLive[x.broadcaster_login]; })
+                .map(function (x) { return { login: x.broadcaster_login, name: x.broadcaster_name }; })
+                .sort(function (a, b) { return a.login < b.login ? -1 : 1; });
+            followedAt = Date.now();
+            return (followed = { live: live.sort(function (a, b) { return b.viewers - a.viewers; }), off: off });
+        }
+        function renderFollowed(box) {
+            var sec = el('div', 'acc-sub', 'Your Twitch follows');
+            var wrap = el('div', 'follow-list', 'Loading…');
+            box.appendChild(sec); box.appendChild(wrap);
+            function pick(login) { L.pin = login; saveLocal(); chooseChannel(); closeSheet(); }
+            loadFollowed().then(function (f) {
+                wrap.textContent = '';
+                var lr = el('div', 'row');
+                f.live.forEach(function (x) {
+                    var c = chip('', room.login === x.login, function () { pick(x.login); }, 'fl-live');
+                    c.appendChild(el('i', 'fl-dot'));
+                    var nm = el('span', 'fl-nm', x.name); if (x.game) nm.appendChild(el('em', '', x.game)); c.appendChild(nm);
+                    c.appendChild(el('small', '', x.viewers >= 1000 ? (x.viewers / 1000).toFixed(1) + 'K' : String(x.viewers)));
+                    if (x.game) c.title = x.game;
+                    lr.appendChild(c);
+                });
+                if (!f.live.length) lr.appendChild(el('span', 'sh-sub', 'Nobody you follow is live'));
+                wrap.appendChild(lr);
+                if (f.off.length) {
+                    var or_ = el('div', 'row'); or_.style.marginTop = '8px';
+                    f.off.forEach(function (x) { or_.appendChild(chip(x.name, room.login === x.login, function () { pick(x.login); }, 'fl-off')); });
+                    wrap.appendChild(or_);
+                }
+            }).catch(function (e) {
+                wrap.textContent = (auth.scopes || []).indexOf('user:read:follows') < 0
+                    ? 'Sign out and back in to show your followed channels.' : 'Couldn’t load followed channels (' + e.message + ').';
+            });
+        }
+        // Settings menu: collapsible sections (open/closed is remembered)
+        function accordion(box, key, title, sub, build, openByDefault) {
+            L.acc = L.acc || {};
+            var open = key in L.acc ? L.acc[key] : !!openByDefault;
+            var sec = el('div', 'acc' + (open ? ' open' : ''));
+            var h = el('button', 'acc-h'); h.type = 'button';
+            var ICONS = { chat: 'M4 5h16v11H9l-5 4z', filter: 'M3 5h18l-7 8v6l-4 2v-8z', preview: 'M3 6h18v12H3zM10 9v6l5-3z', streamer: 'M12 3l7 3v5c0 4.6-3 8.2-7 10-4-1.8-7-5.4-7-10V6z', account: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 3.6-6 8-6s8 2 8 6z' };
+            if (ICONS[key]) h.appendChild(svgEl('<span class="acc-i"><svg viewBox="0 0 24 24"><path d="' + ICONS[key] + '"/></svg></span>'));
+            var tt = el('span', 'acc-t'); tt.appendChild(el('b', '', title)); if (sub) tt.appendChild(el('small', '', sub)); h.appendChild(tt);
+            h.appendChild(svgEl('<svg class="acc-c" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'));
+            h.addEventListener('click', function () { L.acc[key] = !open; saveLocal(); renderSettings(); });
+            sec.appendChild(h);
+            if (open) { var b = el('div', 'acc-b'); build(b); sec.appendChild(b); }
+            box.appendChild(sec);
+        }
+        function toggleChip(label, key, def, after) {   // on-widget option stored in L
+            var on = key in L ? !!L[key] : !!def;
+            return chip(label, on, function () { L[key] = !on; saveLocal(); if (after) after(); apply(); renderSettings(); });
+        }
+        function accSub(b, text) { b.appendChild(el('div', 'acc-sub', text)); }
+        function icueToggles(b, list) {   // options that also exist in iCUE: a tap here overrides until iCUE changes
+            var tg = el('div', 'row');
+            list.forEach(function (o) {
+                tg.appendChild(chip(o[1], !!opt(o[0]), function () {
+                    var v = !opt(o[0]);
+                    if (v === S[o[0]]) delete L[o[0]]; else L[o[0]] = v;
+                    saveLocal(); apply(); renderSettings();
+                }));
+            });
+            b.appendChild(tg);
+            return tg;
+        }
+        function renderSettings() {
+            var box = $('sheet'), keep = box.scrollTop; box.textContent = '';
+            sheetTop(box, 'Channels / Settings', signedIn() ? 'Signed in as ' + auth.login : 'Not signed in');
+
+            // Channel picker stays out in the open at the top; the settings below fold away
+            var cb = el('div', 'ch-pick');
+            cb.appendChild(el('div', 'ch-h', 'Switch channel'));
+            var r = el('div', 'row');
+            if (!signedIn()) r.appendChild(chip('Sign in to see your follows', true, openLogin));
+            else r.appendChild(chip('My channel · ' + auth.login, room.login === auth.login, function () { L.pin = auth.login; saveLocal(); chooseChannel(); closeSheet(); }));
+            cb.appendChild(r);
+            if (signedIn()) renderFollowed(cb);
+            box.appendChild(cb);
+            box.appendChild(el('div', 'ch-h set-h', 'Settings'));
+
+            accordion(box, 'chat', 'Chat look', 'Text, emotes, badges, bubbles', function (b) {
+                accSub(b, 'Text size (when the preview is off)');
+                var sz = el('div', 'row size'), z = L.zoom || 1;
+                function setZoom(v) { L.zoom = Math.round(Math.max(0.6, Math.min(2, v)) * 10) / 10; if (L.zoom === 1) delete L.zoom; saveLocal(); apply(); renderSettings(); }
+                sz.appendChild(chip('A−', false, function () { setZoom(z - 0.1); }));
+                sz.appendChild(el('b', '', Math.round(z * 100) + '%'));
+                sz.appendChild(chip('A+', false, function () { setZoom(z + 0.1); }));
+                b.appendChild(sz);
+                accSub(b, 'Emote size');
+                var es = el('div', 'row');
+                [[1, 'Normal'], [1.3, 'Large'], [1.6, 'Huge']].forEach(function (o) {
+                    es.appendChild(chip(o[1], (L.emoteScale || 1) === o[0], function () { if (o[0] === 1) delete L.emoteScale; else L.emoteScale = o[0]; saveLocal(); apply(); renderSettings(); }));
+                });
+                b.appendChild(es);
+                accSub(b, 'Show');
+                var tg = icueToggles(b, [['showTimestamps', 'Timestamps'], ['showBadges', 'Badges'], ['showHeader', 'Stream info']]);
+                var bub = !!opt('bubbles');
+                tg.appendChild(chip('Message bubbles', bub, function () { if (!bub === S.bubbles) delete L.bubbles; else L.bubbles = !bub; saveLocal(); apply(); renderSettings(); }));
+                tg.appendChild(toggleChip('7TV paints', 'paints', true));
+            }, false);
+
+            accordion(box, 'filter', 'Filters and highlights', 'Bots, commands, keywords', function (b) {
+                accSub(b, 'Hide');
+                icueToggles(b, [['hideBots', 'Bots'], ['hideCommands', '!commands']]);
+                accSub(b, 'Highlight');
+                var hr = el('div', 'row');
+                hr.appendChild(toggleChip('When I’m mentioned', 'hlMe', true, function () { highlightRe = buildHighlight(); }));
+                hr.appendChild(toggleChip('First-time chatters', 'hlFirst', true));
+                b.appendChild(hr);
+                accSub(b, 'Highlight words (comma separated)');
+                var wr = el('div', 'row'), inp = el('input', 'txt');
+                inp.value = 'hlWords' in L ? L.hlWords : S.highlightWords; inp.placeholder = 'e.g. giveaway, !drop'; inp.spellcheck = false;
+                wr.appendChild(inp);
+                wr.appendChild(chip('Save', true, function () { L.hlWords = inp.value.trim(); saveLocal(); highlightRe = buildHighlight(); toast('Highlight words saved'); }));
+                b.appendChild(wr);
+            }, false);
+
+            accordion(box, 'preview', 'Stream preview', 'Size, view, sound, delay', function (b) {
+                accSub(b, 'Size');
+                var pr = el('div', 'row');
+                [[50, 'Medium'], [75, 'Large'], [100, 'Full (no chat)']].forEach(function (o) {
+                    pr.appendChild(chip(o[1], (L.pvh || 50) === o[0], function () { L.pvh = o[0]; saveLocal(); pvSize(); renderSettings(); }));
+                });
+                b.appendChild(pr);
+                accSub(b, 'Options');
+                var po = el('div', 'row');
+                po.appendChild(toggleChip('Show delay', 'pvLat', true));
+                po.appendChild(chip('Theater view', !!L.theater, function () { L.theater = !L.theater; if (!L.theater) delete L.theater; saveLocal(); body.classList.toggle('theater', !!L.theater); pvSize(); renderSettings(); }));
+                b.appendChild(po);
+                accSub(b, 'Sound output');
+                var ar = el('div', 'row');
+                if (!pvDevices) { ar.appendChild(el('span', 'sh-sub', 'Loading outputs…')); if (np && np.readyState === 1) np.send(JSON.stringify({ type: 'pvdevices' })); }
+                else [''].concat(pvDevices).forEach(function (d) {
+                    ar.appendChild(chip(d || 'Windows default', (L.pvDevice || '') === d, function () {
+                        if (d) L.pvDevice = d; else delete L.pvDevice;
+                        saveLocal(); pvSoundSync(); renderSettings();
+                    }));
+                });
+                b.appendChild(ar);
+            }, false);
+
+            if (signedIn()) accordion(box, 'streamer', 'Streamer tools', isMod ? 'You can moderate this chat' : 'Mod tools appear in channels you moderate', function (b) {
+                var r = el('div', 'row');
+                if (isMod) r.appendChild(chip('Moderation panel', true, function () { openSheet('mod'); renderMod(); }));
+                r.appendChild(chip('Clear chat on this screen', false, function () { chat.textContent = ''; toast('Cleared here only (not on Twitch)'); }));
+                r.appendChild(chip('Copy channel link', false, function () {
+                    var link = 'https://twitch.tv/' + room.login;
+                    (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () { toast('Copied ' + link); }, function () { toast(link); });
+                }));
+                b.appendChild(r);
+            }, false);
+
+            accordion(box, 'account', 'Twitch account', signedIn() ? auth.login : 'Not signed in', function (b) {
+                var ac = el('div', 'row');
+                if (signedIn()) ac.appendChild(armed('Sign out', signOut));
+                else ac.appendChild(chip('Sign in to chat', true, openLogin));
+                b.appendChild(ac);
+            }, false);
+            box.scrollTop = keep;
+        }
+        function clearSession() {   // local sign-out state, shared by Sign out and an expired refresh token
+            auth = null; myAvatar = ''; isMod = false; body.classList.remove('is-mod'); delete ESETS['twitch:user']; delete ESETS['twitch:global']; delete ESETS['twitch:channel'];
+            var me = $('me'); if (me.tagName === 'IMG') { var d = el('div'); d.id = 'me'; d.appendChild(svgEl('<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>')); me.replaceWith(d); }
+            if (sheetKind === 'mod') closeSheet();
+            putSet('_', 'none', 'none', []);
+            saveAuth();
+        }
+        function signOut() {
+            if (auth) fetch('https://id.twitch.tv/oauth2/revoke', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form({ client_id: auth.clientId, token: auth.access }) }).catch(function () {});
+            clearSession(); closeSheet(); toast('Signed out');
+        }
+
+        // Sign-in sheet (Twitch device code flow: no password ever enters the widget)
+        var loginPoll = 0;
+        function openLogin() { openSheet('login'); renderLogin(); }
+        $('send').addEventListener('click', function (e) { if (!signedIn()) { e.preventDefault(); openLogin(); } });
+        async function renderLogin() {
+            var box = $('sheet'); box.textContent = '';
+            var cid = clientIdNow();
+            if (!cid) {
+                sheetTop(box, 'Connect Twitch', 'Chatting and moderating need your own free Twitch app.\nCreate one at dev.twitch.tv/console → Register Your Application (Client Type: Public, OAuth Redirect URL: http://localhost), then paste its Client ID here or in iCUE.');
+                var row_ = el('div', 'row'); row_.style.marginTop = '16px';
+                var inp = el('input', 'txt'); inp.placeholder = 'Client ID'; inp.spellcheck = false; row_.appendChild(inp);
+                row_.appendChild(chip('Save', true, function () { var v = inp.value.trim().replace(/[^a-z0-9]/gi, ''); if (v.length < 20) { toast('That doesn’t look like a Client ID', true); return; } L.clientId = v; saveLocal(); renderLogin(); }));
+                box.appendChild(row_);
+                return;
+            }
+            var info = sheetTop(box, 'Sign in with Twitch', 'Connecting to Twitch…');
+            try {
+                var d = await getJSON('https://id.twitch.tv/oauth2/device', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form({ client_id: cid, scopes: SCOPES }) });
+                if (sheetKind !== 'login') return;
+                info.lastChild.textContent = 'On your PC or phone, open twitch.tv/activate and enter:';
+                box.appendChild(el('div', 'code', d.user_code));
+                box.appendChild(el('div', 'sh-sub center', 'Waiting for you to approve… this closes by itself.'));
+                var until = Date.now() + d.expires_in * 1000, every = (d.interval || 5) * 1000;
+                var poll = async function () {
+                    if (sheetKind !== 'login') return;
+                    if (Date.now() > until) { renderLogin(); return; }
+                    try {
+                        var t = await tokenReq({ client_id: cid, scopes: SCOPES, device_code: d.device_code, grant_type: 'urn:ietf:params:oauth:grant-type:device_code' });
+                        var v = await getJSON('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + t.access_token } });
+                        auth = { clientId: cid, access: t.access_token, refresh: t.refresh_token, login: v.login, uid: v.user_id, scopes: v.scopes || [] };
+                        diag('signed in', v.login, 'scopes=' + (v.scopes || []).length);
+                        saveAuth(); closeSheet(); toast('Signed in as ' + v.login);
+                        loadMyAvatar(); checkMod(); loadTwitchEmotes();
+                    } catch (e) {
+                        var m = String(e.message || '');
+                        if (/slow_down/i.test(m)) { every += 5000; loginPoll = setTimeout(poll, every); }
+                        else if (/authorization_pending/i.test(m) || !e.status || e.status >= 500) loginPoll = setTimeout(poll, every);   // keep waiting
+                        else if (sheetKind === 'login') { diag('login poll failed', e.status, m); info.lastChild.textContent = 'Sign-in was cancelled or the code expired (' + m + '). Tap below for a new code.'; var rr = el('div', 'row'); rr.style.marginTop = '14px'; rr.appendChild(chip('Get a new code', true, renderLogin)); box.appendChild(rr); }
+                    }
+                };
+                loginPoll = setTimeout(poll, every);
+            } catch (e) {
+                diag('login device failed', e.status, e.message); info.lastChild.textContent = 'Twitch rejected the Client ID (' + e.message + '). Make sure the app’s Client Type is “Public”.';
+                var row2 = el('div', 'row'); row2.style.marginTop = '14px';
+                row2.appendChild(chip('Use a different Client ID', false, function () { delete L.clientId; saveLocal(); if (S.clientId) toast('Change it in iCUE → XE Chat settings'); renderLogin(); }));
+                box.appendChild(row2);
+            }
+        }
+
+        // Moderation sheet
+        function modQS() { if (!auth) throw new Error('Sign in to Twitch first'); return '?broadcaster_id=' + room.id + '&moderator_id=' + auth.uid; }
+        async function modAction(label, fn) { try { await fn(); toast(label); } catch (e) { toast(e.message, true); } }
+        $('modbtn').addEventListener('click', function () { if (sheetKind === 'mod') closeSheet(); else { openSheet('mod'); renderMod(); } });
+        function renderMod() {
+            var box = $('sheet'); box.textContent = '';
+            sheetTop(box, 'Moderation', 'Chat settings for ' + (room.info ? room.info.displayName : room.login));
+            box.appendChild(el('div', 'sh-sec', 'Chat modes'));
+            var r1 = el('div', 'row');
+            var patch = function (bodyObj, label) { modAction(label, function () { return helix('PATCH', '/chat/settings' + modQS(), bodyObj); }); };
+            r1.appendChild(chip(modes.slow > 0 ? 'Slow mode · ' + modes.slow + 's' : 'Slow mode', modes.slow > 0, function () { patch(modes.slow > 0 ? { slow_mode: false } : { slow_mode: true, slow_mode_wait_time: 30 }, 'Slow mode ' + (modes.slow > 0 ? 'off' : 'on')); }));
+            r1.appendChild(chip('Emote only', modes.emote, function () { patch({ emote_mode: !modes.emote }, 'Emote-only ' + (modes.emote ? 'off' : 'on')); }));
+            r1.appendChild(chip('Sub only', modes.sub, function () { patch({ subscriber_mode: !modes.sub }, 'Sub-only ' + (modes.sub ? 'off' : 'on')); }));
+            r1.appendChild(chip('Followers only', modes.follow >= 0, function () { patch(modes.follow >= 0 ? { follower_mode: false } : { follower_mode: true, follower_mode_duration: 10 }, 'Followers-only ' + (modes.follow >= 0 ? 'off' : 'on')); }));
+            box.appendChild(r1);
+            box.appendChild(el('div', 'sh-sec', 'Safety'));
+            var r2 = el('div', 'row');
+            r2.appendChild(chip('Shield mode', modes.shield, function () {
+                var on = !modes.shield;
+                modAction('Shield mode ' + (on ? 'on' : 'off'), function () { return helix('PUT', '/moderation/shield_mode' + modQS(), { is_active: on }).then(function () { modes.shield = on; renderModes(); }); });
+            }));
+            r2.appendChild(armed('Clear chat', function () { modAction('Chat cleared', function () { return helix('DELETE', '/moderation/chat' + modQS()); }); closeSheet(); }));
+            box.appendChild(r2);
+        }
+
+        // User card
+        function openCard(login, uid, msgId, rowEl) {
+            openSheet('card');
+            var box = $('sheet'); box.textContent = '';
+            var nameEl = rowEl.querySelector('.n');
+            var t = sheetTop(box, nameEl ? nameEl.textContent : login, 'Loading…', '');
+            if (nameEl) t.firstChild.style.color = nameEl.style.color;
+            var av = box.querySelector('.card-av'), meta = t.lastChild;
+            var room0 = room.login;
+            Promise.all([
+                getJSON('https://api.ivr.fi/v2/twitch/user?login=' + encodeURIComponent(login)).catch(function () { return null; }),
+                getJSON('https://api.ivr.fi/v2/twitch/subage/' + encodeURIComponent(login) + '/' + encodeURIComponent(room0)).catch(function () { return null; })
+            ]).then(function (r) {
+                if (sheetKind !== 'card') return;
+                var u = r[0] && r[0][0], sa = r[1], lines = [];
+                if (u) { if (u.logo) setImg(av, u.logo); lines.push('Account ' + fmtAge(u.createdAt) + ' old · ' + fmtNum(u.followers) + ' followers' + (u.banned ? ' · suspended' : '')); }
+                if (sa) {
+                    var bits = [sa.followedAt ? 'Following for ' + fmtAge(sa.followedAt) : 'Not following'];
+                    if (sa.cumulative && sa.cumulative.months) bits.push('Subscribed ' + sa.cumulative.months + ' months' + (sa.meta && sa.meta.tier ? ' (Tier ' + sa.meta.tier + ')' : ''));
+                    lines.push(bits.join(' · '));
+                }
+                meta.textContent = lines.join('\n') || 'No details available';
+            });
+            var msgs = userMsgs[login] || [];
+            box.appendChild(el('div', 'sh-sec', 'Recent messages · ' + msgs.length + ' this session'));
+            var list = el('div', 'card-msgs');
+            msgs.slice(-12).forEach(function (mm) { var r = row('', mm.ts), c = el('p', 'c'); renderText(c, mm.text, null); r.appendChild(c); list.appendChild(r); });
+            if (!msgs.length) list.appendChild(el('div', 'pempty', 'No messages yet'));
+            box.appendChild(list);
+            if (isMod && auth) {
+                box.appendChild(el('div', 'sh-sec', 'Moderate'));
+                var acts = el('div', 'row');
+                var ban = function (dur, label) { modAction(label, function () { return helix('POST', '/moderation/bans' + modQS(), { data: dur ? { user_id: uid, duration: dur } : { user_id: uid } }); }); closeSheet(); };
+                if (msgId) acts.appendChild(chip('Delete message', false, function () { modAction('Message deleted', function () { return helix('DELETE', '/moderation/chat' + modQS() + '&message_id=' + encodeURIComponent(msgId)); }); closeSheet(); }));
+                [[60, '1m'], [600, '10m'], [3600, '1h'], [86400, '24h']].forEach(function (o) { acts.appendChild(chip('Timeout ' + o[1], false, function () { ban(o[0], 'Timed out ' + login + ' for ' + o[1]); })); });
+                acts.appendChild(armed('Ban', function () { ban(0, 'Banned ' + login); }));
+                acts.appendChild(chip('Unban', false, function () { modAction('Unbanned ' + login, function () { return helix('DELETE', '/moderation/bans' + modQS() + '&user_id=' + uid); }); closeSheet(); }));
+                box.appendChild(acts);
+            } else if (signedIn()) {
+                var r3 = el('div', 'row'); r3.style.marginTop = '14px';
+                r3.appendChild(chip('Reply with @' + (nameEl ? nameEl.textContent : login), false, function () { closeSheet(); closeSuggest(); input.value = '@' + (nameEl ? nameEl.textContent : login) + ' ' + input.value; input.focus(); }));
+                box.appendChild(r3);
+            }
+        }
+
+        // ── Start ─────────────────────────────────────────────────
+        var started = false;
+        function init() {
+            loadStvCosmetics();
+            if (started) { apply(); return; }
+            started = true;
+            diag('init', 'v2', innerWidth + 'x' + innerHeight, 'signedIn=' + signedIn());
+            loadGlobal();
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) apply(); });
+            apply();
+            if (signedIn()) { loadMyAvatar(); validateToken(); }
+            setInterval(validateToken, 3600000);
+        }
+        function validateToken() {
+            if (!auth || !auth.access) return;
+            getJSON('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + auth.access } })
+                .then(function (v) { if (auth && (v.login !== auth.login || JSON.stringify(v.scopes || []) !== JSON.stringify(auth.scopes || []))) { auth.login = v.login; auth.scopes = v.scopes || []; saveAuth(); } })
+                .catch(function (e) { if (e.status === 401) refreshToken().catch(function (er) { toast(er.message, true); }); });
+        }
+        return { init: init, apply: apply };
+    })();
+
+    if (typeof iCUE_initialized !== 'undefined') { if (iCUE_initialized) XEC.init(); }
+    else XEC.init();   // opened outside iCUE (browser preview)
+    </script>
+</body>
+</html>

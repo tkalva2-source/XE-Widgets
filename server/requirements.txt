@@ -1,0 +1,10 @@
+PyAudioWPatch
+numpy
+websockets
+pystray
+Pillow
+av
+winrt-runtime
+winrt-Windows.Media.Control
+winrt-Windows.Storage.Streams
+winrt-Windows.Foundation.Collections

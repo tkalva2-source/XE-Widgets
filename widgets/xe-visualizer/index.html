@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-icue-framework-version" content="1.0.1">
+    <title>tr('XE Visualizer')</title>
+    <link rel="icon" type="image/svg+xml" href="resources/qk-visualizer.svg">
+    <meta name="x-icue-restrictions" data-restrictions='[{"device":"dashboard_lcd"}]'>
+
+    <!-- Only combobox / slider / switch / color / textfield / media-selector:
+         iCUE's tab-buttons editor throws errors (rowCount) and was implicated in crashes. -->
+
+    <!-- Visualizer -->
+    <meta name="x-icue-property" content="vizStyle" data-label="tr('Style')" data-type="combobox"
+        data-values="[{'key':'bars','value':tr('Bars')},{'key':'led','value':tr('LED Meter')},{'key':'wave','value':tr('Wave')},{'key':'radial','value':tr('Radial')}]"
+        data-default="'bars'">
+    <meta name="x-icue-property" content="layout" data-label="tr('Layout')" data-type="combobox"
+        data-values="[{'key':'split','value':tr('Side by Side')},{'key':'overlay','value':tr('Visualizer Behind Info')},{'key':'viz','value':tr('Visualizer Only')},{'key':'info','value':tr('Now Playing Only')}]"
+        data-default="'split'">
+    <meta name="x-icue-property" content="perfMode" data-label="tr('Performance')" data-type="combobox"
+        data-values="[{'key':'eco','value':tr('Eco (lightest, for gaming)')},{'key':'balanced','value':tr('Balanced')},{'key':'smooth','value':tr('Smooth (60 FPS)')}]"
+        data-default="'balanced'">
+    <meta name="x-icue-property" content="barCount" data-label="tr('Bar Count')" data-type="slider"
+        data-default="48" data-min="16" data-max="96" data-step="8">
+    <meta name="x-icue-property" content="barHeight" data-label="tr('Bar Height')" data-type="slider"
+        data-default="70" data-min="25" data-max="100" data-step="5">
+    <meta name="x-icue-property" content="sensitivity" data-label="tr('Sensitivity')" data-type="slider"
+        data-default="50" data-min="10" data-max="100" data-step="5">
+    <meta name="x-icue-property" content="smoothing" data-label="tr('Smoothing')" data-type="slider"
+        data-default="40" data-min="0" data-max="90" data-step="5">
+    <meta name="x-icue-property" content="mirror" data-label="tr('Mirror')" data-type="switch" data-default="false">
+    <meta name="x-icue-property" content="roundBars" data-label="tr('Rounded Bars')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="peakCaps" data-label="tr('Peak Caps')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="glow" data-label="tr('Glow')" data-type="switch" data-default="true">
+
+    <!-- Now playing -->
+    <meta name="x-icue-property" content="showControls" data-label="tr('Playback Controls')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="showProgress" data-label="tr('Progress Bar')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="marquee" data-label="tr('Scroll Long Titles')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="textScale" data-label="tr('Text Size')" data-type="slider"
+        data-default="100" data-min="70" data-max="200" data-step="5">
+    <meta name="x-icue-property" content="demoMode" data-label="tr('Demo When Server Offline')" data-type="switch" data-default="false">
+    <meta name="x-icue-property" content="audioSource" data-label="tr('Audio Source')" data-type="combobox"
+        data-values="[{'key':'media+aux','value':tr('Media + Aux (YouTube + Spotify)')},{'key':'media','value':tr('Media only (Sonar Media)')},{'key':'stream','value':tr('Everything (Sonar Stream)')},{'key':'gaming','value':tr('Game (Sonar Gaming)')},{'key':'chat','value':tr('Chat (Sonar Chat)')},{'key':'aux','value':tr('Aux only (Sonar Aux)')},{'key':'default','value':tr('Windows Default Output')}]"
+        data-default="'media+aux'">
+    <meta name="x-icue-property" content="serverPort" data-label="tr('Server Port')" data-type="textfield" data-default="'16329'">
+
+    <!-- Personalization -->
+    <meta name="x-icue-property" content="theme" data-label="tr('Theme')" data-type="combobox"
+        data-values="[{'key':'custom','value':tr('Custom Colors')},{'key':'neon','value':tr('Neon')},{'key':'synthwave','value':tr('Synthwave')},{'key':'sunset','value':tr('Sunset')},{'key':'ocean','value':tr('Ocean')},{'key':'aurora','value':tr('Aurora')},{'key':'ember','value':tr('Ember')},{'key':'mono','value':tr('Mono')}]"
+        data-default="'custom'">
+    <meta name="x-icue-property" content="colorMode" data-label="tr('Visualizer Colors')" data-type="combobox"
+        data-values="[{'key':'gradient','value':tr('Theme Gradient')},{'key':'accent','value':tr('Accent Color')},{'key':'album','value':tr('From Album Art')},{'key':'rainbow','value':tr('Rainbow')}]"
+        data-default="'gradient'">
+    <meta name="x-icue-property" content="accentColor" data-label="tr('Accent Color')" data-type="color" data-default="'#1DB954'">
+    <meta name="x-icue-property" content="albumAccent" data-label="tr('Accent From Album Art')" data-type="switch" data-default="false">
+    <meta name="x-icue-property" content="textColor" data-label="tr('Text Color')" data-type="color" data-default="'#F2F2F2'">
+    <meta name="x-icue-property" content="backgroundColor" data-label="tr('Background Color')" data-type="color" data-default="'#0B0B0F'">
+    <meta name="x-icue-property" content="transparency" data-label="tr('Background Opacity')" data-type="slider"
+        data-default="100" data-min="0" data-max="100" data-step="5">
+    <meta name="x-icue-property" content="artBackdrop" data-label="tr('Album Art Backdrop')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="backgroundMedia" data-label="tr('Background Image')" data-type="media-selector"
+        data-filters="['*.png','*.jpg','*.jpeg','*.webp']">
+
+    <script type="application/json" id="x-icue-groups">
+    [
+        { "title": "tr('Visualizer')", "properties": ["vizStyle", "layout", "perfMode", "barCount", "barHeight", "sensitivity", "smoothing", "mirror", "roundBars", "peakCaps", "glow"] },
+        { "title": "tr('Now Playing')", "properties": ["showControls", "showProgress", "marquee", "textScale", "audioSource", "demoMode", "serverPort"] },
+        { "title": "tr('Widget Personalization')", "properties": ["theme", "colorMode", "accentColor", "albumAccent", "textColor", "backgroundColor", "transparency", "artBackdrop", "backgroundMedia"] }
+    ]
+    </script>
+
+    <style>
+        :root {
+            --u: 6.96px;            /* 1% of the widget's shorter side, set by JS */
+            --ts: 1;                /* text scale */
+            --text: #F2F2F2;
+            --accent: #1DB954;
+            --bg-rgb: 11, 11, 15;
+            --bg-a: 1;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        body {
+            font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+            color: var(--text);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ── Background: solid color, optional image, optional album-art backdrop ── */
+        #bg { position: fixed; inset: 0; overflow: hidden; background: rgba(var(--bg-rgb), var(--bg-a)); }
+        /* 64x36 canvas stretched to full size: the browser's upscaling does the
+           blurring, so there's no CSS filter to recompute. Redrawn per track only. */
+        #backdrop { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.8s; }
+        .has-backdrop #backdrop { opacity: calc(0.6 * var(--bg-a)); }
+        #tint { position: absolute; inset: 0; display: none;
+            background: linear-gradient(90deg, rgba(var(--bg-rgb), calc(0.7 * var(--bg-a))), rgba(var(--bg-rgb), calc(0.35 * var(--bg-a)))); }
+        .has-backdrop #tint { display: block; }
+        #media-background { position: absolute; inset: 0; visibility: hidden; }
+        .position-container { position: absolute; transform-origin: top left; }
+        .scale-container { transform-origin: top left; }
+        .rotation-container { transform-origin: center center; }
+        .rotation-container img { display: block; object-fit: contain; }
+
+        /* ── App shell ── */
+        #app {
+            position: relative;
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: stretch;
+            gap: calc(var(--u) * 3);
+            padding: calc(var(--u) * 3);
+        }
+        #art-wrap {
+            position: relative;
+            flex: 0 0 auto;
+            border-radius: calc(var(--u) * 2.4);
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 calc(var(--u) * 1.2) calc(var(--u) * 4) rgba(0, 0, 0, 0.45);
+            z-index: 1;
+        }
+        #art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.4s; }
+        .has-art #art { opacity: 1; }
+        #art-ph { position: absolute; inset: 0; display: grid; place-items: center; }
+        #art-ph svg { width: 34%; height: 34%; fill: var(--text); opacity: 0.25; }
+        .has-art #art-ph { display: none; }
+
+        #info {
+            flex: 1.25 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: calc(var(--u) * 1.4);
+            z-index: 1;
+        }
+        .line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .line.scroll { text-overflow: clip;
+            -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+        .line.scroll > span { display: inline-block; animation: marq var(--dur, 10s) linear infinite; }
+        @keyframes marq { to { transform: translateX(var(--dist, -50%)); } }
+        #title { font-size: calc(var(--u) * 8.6 * var(--ts)); font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; }
+        #artist { font-size: calc(var(--u) * 5.6 * var(--ts)); font-weight: 500; line-height: 1.2; opacity: 0.72; }
+        #status {
+            display: flex; align-items: center; gap: calc(var(--u) * 1.2);
+            font-size: calc(var(--u) * 3.1 * var(--ts)); font-weight: 700;
+            letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent);
+        }
+        #status::before { content: ''; width: 0.62em; height: 0.62em; border-radius: 50%; background: currentColor; opacity: 0.45; }
+        .playing #status::before { opacity: 1; box-shadow: 0 0 0.6em var(--accent); }
+        #platform { display: none; align-items: center; gap: 0.45em; margin-left: 0.5em; padding-left: 0.9em;
+            border-left: 1px solid rgba(255, 255, 255, 0.2); color: var(--text); opacity: 0.9; letter-spacing: 0.1em; }
+        #platform svg { width: 1.45em; height: 1.45em; flex: 0 0 auto; }
+        .has-platform #platform { display: inline-flex; }
+
+        /* ── Controls ── */
+        #controls { --b: calc(var(--u) * 11 * var(--ts)); display: flex; align-items: center; gap: calc(var(--b) * 0.3); margin-top: calc(var(--u) * 0.6); }
+        .btn {
+            position: relative; flex: 0 0 auto;
+            width: var(--b); height: var(--b);
+            border: 0; border-radius: 50%;
+            display: grid; place-items: center;
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.1);
+            cursor: pointer; touch-action: manipulation;
+            transition: transform 0.1s;
+        }
+        .btn::before { content: ''; position: absolute; inset: -22%; }   /* larger touch target */
+        .btn:active { transform: scale(0.9); }
+        .btn svg { width: 46%; height: 46%; fill: currentColor; pointer-events: none; }
+        .btn.main { width: calc(var(--b) * 1.28); height: calc(var(--b) * 1.28); background: var(--accent); color: rgb(var(--bg-rgb)); }
+        .btn .i-pause, .playing .btn .i-play { display: none; }
+        .playing .btn .i-pause { display: block; }
+
+        /* ── Progress ── */
+        #progress { display: flex; align-items: center; gap: calc(var(--u) * 1.6); font-size: calc(var(--u) * 3 * var(--ts));
+            font-variant-numeric: tabular-nums; font-weight: 600; }
+        #progress span { opacity: 0.6; flex: 0 0 auto; }
+        #track { position: relative; flex: 1 1 auto; height: max(4px, calc(var(--u) * 1)); border-radius: 99px;
+            background: rgba(255, 255, 255, 0.14); cursor: pointer; }
+        #track::before { content: ''; position: absolute; left: 0; right: 0; top: -250%; bottom: -250%; } /* touch target */
+        #fill { position: absolute; inset: 0; border-radius: inherit; background: var(--accent);
+            transform-origin: left center; transform: scaleX(0); transition: transform 0.25s linear; }
+        .no-dur #progress { visibility: hidden; }   /* no length known: show nothing rather than a stale time */
+        #live { display: none; align-items: center; gap: 0.5em; padding: 0.25em 0.8em; border-radius: 99px;
+            background: #E91916; color: #fff; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; opacity: 1 !important; }
+        #live::before { content: ''; width: 0.55em; height: 0.55em; border-radius: 50%; background: #fff; }
+        .live #progress { visibility: visible; }
+        .live #live { display: inline-flex; }
+        .live #t-pos, .live #track, .live #t-dur { display: none; }
+        .no-dur #track { cursor: default; }
+
+        /* ── Visualizer ── */
+        #viz { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
+        #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+        /* ── Offline pill ── */
+        #offline {
+            display: none; position: absolute; left: 50%; bottom: calc(var(--u) * 2.4); transform: translateX(-50%);
+            padding: calc(var(--u) * 0.8) calc(var(--u) * 2.4); border-radius: 99px;
+            font-size: calc(var(--u) * 2.8); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+            background: rgba(0, 0, 0, 0.55); color: var(--text); z-index: 5; white-space: nowrap;
+        }
+        .offline #offline { display: block; }
+        .offline #info, .offline #viz { opacity: 0.35; }
+        .offline #controls, .demo #controls { visibility: hidden; }
+
+        .no-controls #controls, .no-progress #progress { display: none; }
+
+        /* ═══ Wide slots (S/L/XL horizontal) ═══ */
+        .shape-wide #art-wrap { height: 100%; aspect-ratio: 1 / 1; }
+        .shape-wide #info { max-width: calc(var(--u) * 130); }
+
+        /* ═══ Square-ish slots (M) ═══ */
+        .shape-square { display: grid !important; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+        .shape-square #art-wrap { width: calc(var(--u) * 34); aspect-ratio: 1 / 1; align-self: center; }
+        .shape-square #viz { grid-column: 1 / -1; }
+        .shape-square #title { font-size: calc(var(--u) * 7 * var(--ts)); }
+        .shape-square #artist { font-size: calc(var(--u) * 4.8 * var(--ts)); }
+        .shape-square #controls { --b: calc(var(--u) * 9.5 * var(--ts)); }
+
+        /* ═══ Tall slots (vertical) ═══ */
+        .shape-tall { flex-direction: column; align-items: center; text-align: center; }
+        .shape-tall #art-wrap { width: min(82%, 36vh); aspect-ratio: 1 / 1; }
+        .shape-tall #info { flex: 0 0 auto; width: 100%; align-items: stretch; }
+        .shape-tall #status, .shape-tall #controls { justify-content: center; }
+        .shape-tall #viz { flex: 1 1 0; width: 100%; }
+
+        /* ═══ Small slots (S: 840x344, 697x417): art left, info top-right,
+           visualizer strip bottom-right so it gets real width ═══ */
+        .size-s { display: grid !important; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(18%, 1fr);
+            column-gap: calc(var(--u) * 3.5); row-gap: calc(var(--u) * 2.2); }
+        .size-s #art-wrap { grid-row: 1 / -1; height: 100%; width: auto; aspect-ratio: 1 / 1; align-self: stretch; }
+        /* Buttons and progress share one row so bigger text still leaves room for the bars. */
+        .size-s #info { max-width: none; display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start;
+            column-gap: calc(var(--u) * 3); row-gap: calc(var(--u) * 1.1); }
+        .size-s #status, .size-s #title, .size-s #artist { grid-column: 1 / -1; }
+        .size-s #controls { margin-top: 0; }
+        .size-s.no-controls #progress { grid-column: 1 / -1; }
+        .size-s #title { font-size: calc(var(--u) * 9 * var(--ts)); }
+        .size-s #artist { font-size: calc(var(--u) * 6 * var(--ts)); }
+        .size-s #status { font-size: calc(var(--u) * 3.6 * var(--ts)); }
+        .size-s #controls { --b: calc(var(--u) * 12.5 * min(var(--ts), 1.25)); }
+        .size-s #progress { font-size: calc(var(--u) * 3.8 * min(var(--ts), 1.4)); }
+        .size-s #viz { grid-column: 2; }
+        .size-s.layout-info #info { grid-row: 1 / -1; align-content: center; }
+
+        /* ═══ Layout modes ═══ */
+        .layout-overlay #viz { position: absolute; inset: 0; z-index: 0; opacity: 0.85; }
+        .layout-overlay #info { text-shadow: 0 0.08em 0.4em rgba(0, 0, 0, 0.6); }
+        .layout-overlay.shape-wide #info { max-width: none; }
+        .layout-viz { display: flex !important; }
+        .layout-viz #art-wrap, .layout-viz #info { display: none; }
+        .layout-info #viz { display: none; }
+        .layout-info.shape-wide #info { max-width: none; }
+        .layout-info.shape-square #info { grid-row: 1 / -1; }
+        .layout-info.shape-square #art-wrap { width: calc(var(--u) * 60); }
+    </style>
+</head>
+<body>
+    <div id="bg">
+        <div id="media-background"></div>
+        <canvas id="backdrop" width="64" height="36"></canvas>
+        <div id="tint"></div>
+    </div>
+    <main id="app" class="shape-wide layout-split no-dur">
+        <div id="art-wrap">
+            <div id="art-ph"><svg viewBox="0 0 24 24"><path d="M9 17.5a3.5 3.5 0 1 1-2-3.16V5.2a1 1 0 0 1 .76-.97l10-2.5A1 1 0 0 1 19 2.7v12.8a3.5 3.5 0 1 1-2-3.16V7.28l-8 2V17.5z"/></svg></div>
+            <img id="art" alt="">
+        </div>
+        <section id="info">
+            <div id="status"><span id="status-text">Paused</span><span id="platform"></span></div>
+            <div id="title" class="line"><span>Nothing playing</span></div>
+            <div id="artist" class="line"><span></span></div>
+            <div id="controls">
+                <button class="btn" data-action="previous" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M6 5h2.4v14H6zM19.5 5.6v12.8a.8.8 0 0 1-1.2.7L9.4 12.7a.8.8 0 0 1 0-1.4l8.9-6.4a.8.8 0 0 1 1.2.7z"/></svg></button>
+                <button class="btn main" data-action="playpause" aria-label="Play or pause"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a.9.9 0 0 0 1.4.8l10.2-6.8a.9.9 0 0 0 0-1.6L9.4 4.4A.9.9 0 0 0 8 5.2z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg></button>
+                <button class="btn" data-action="next" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M18 5h-2.4v14H18zM4.5 5.6v12.8a.8.8 0 0 0 1.2.7l8.9-6.4a.8.8 0 0 0 0-1.4L5.7 4.9a.8.8 0 0 0-1.2.7z"/></svg></button>
+            </div>
+            <div id="progress"><span id="live">Live</span><span id="t-pos">0:00</span><div id="track"><div id="fill"></div></div><span id="t-dur">0:00</span></div>
+        </section>
+        <section id="viz"><canvas id="cv"></canvas></section>
+        <div id="offline">Server offline</div>
+    </main>
+
+    <script>
+    /* MediaViewer: Corsair's helper for media-selector backgrounds (trimmed). */
+    function MediaViewer(container) { this.c = container; this.cur = null; }
+    MediaViewer.prototype.show = function (v) {
+        var path = v && (v.pathToAsset || v.path || (typeof v === 'string' ? v : ''));
+        if (!path) { this.clear(); return; }
+        path = decodeURIComponent(path);
+        if (this.cur !== path) {
+            this.clear();
+            var img = document.createElement('img'); img.src = path;
+            this.rot = document.createElement('div'); this.rot.className = 'rotation-container';
+            this.scl = document.createElement('div'); this.scl.className = 'scale-container';
+            this.pos = document.createElement('div'); this.pos.className = 'position-container';
+            this.rot.appendChild(img); this.scl.appendChild(this.rot); this.pos.appendChild(this.scl);
+            this.c.appendChild(this.pos); this.c.style.visibility = 'visible'; this.cur = path;
+        }
+        var bw = Number(v.baseWidth) || 100, bh = Number(v.baseHeight) || 100;
+        var s = isFinite(Number(v.scale)) ? Number(v.scale) : 1;
+        var ms = Math.min(this.c.clientWidth / bw, this.c.clientHeight / bh);
+        this.pos.style.transform = 'translate(' + (Number(v.positionX) || 0) * ms + 'px,' + (Number(v.positionY) || 0) * ms + 'px)';
+        this.scl.style.transform = 'scale(' + s * ms + ')';
+        this.rot.style.transform = 'rotate(' + (Number(v.angle) || 0) + 'deg)';
+    };
+    MediaViewer.prototype.clear = function () { this.c.innerHTML = ''; this.c.style.visibility = 'hidden'; this.cur = null; };
+    </script>
+
+    <script>
+    // iCUE calls these. iCUE already declares `icueEvents` itself, so this must be a
+    // plain assignment: re-declaring it (var/let) is a SyntaxError that kills the whole script.
+    icueEvents = { onICUEInitialized: function () { XEV.init(); }, onDataUpdated: function () { XEV.applySettings(); } };
+
+    var XEV = (function () {
+        'use strict';
+
+        // ── Settings ──────────────────────────────────────────────
+        var S = {
+            vizStyle: 'bars', layout: 'split', perfMode: 'balanced',
+            barCount: 48, barHeight: 70, sensitivity: 50, smoothing: 40, audioSource: 'media+aux',
+            mirror: false, roundBars: true, peakCaps: true, glow: true,
+            showControls: true, showProgress: true, marquee: true, textScale: 100,
+            demoMode: false, serverPort: '16329',
+            theme: 'custom', colorMode: 'gradient', accentColor: '#1DB954', albumAccent: false,
+            textColor: '#F2F2F2', backgroundColor: '#0B0B0F', transparency: 100, artBackdrop: true
+        };
+        var PERF = { eco: { fps: 30, scale: 0.5 }, balanced: { fps: 30, scale: 0.8 }, smooth: { fps: 60, scale: 1 } };
+        var THEMES = {
+            neon:      { accent: '#00E5FF', text: '#E6FCFF', bg: '#05060F', pal: ['#00E5FF', '#7B5CFF', '#FF2BD6'] },
+            synthwave: { accent: '#FF3CAC', text: '#FFE8F6', bg: '#120623', pal: ['#FFD319', '#FF3CAC', '#784BA0'] },
+            sunset:    { accent: '#FF7A45', text: '#FFF1E6', bg: '#140A0C', pal: ['#FFC14D', '#FF6A3D', '#D6246E'] },
+            ocean:     { accent: '#2EC5FF', text: '#E3F6FF', bg: '#04121C', pal: ['#00E0C6', '#2E9BFF', '#3B4BFF'] },
+            aurora:    { accent: '#4DFFB0', text: '#E9FFF6', bg: '#061210', pal: ['#4DFFB0', '#28C8FF', '#A35CFF'] },
+            ember:     { accent: '#FF4D2E', text: '#FFE9E2', bg: '#0E0605', pal: ['#FFB347', '#FF4D2E', '#B3001B'] },
+            mono:      { accent: '#FFFFFF', text: '#F0F0F0', bg: '#000000', pal: ['#FFFFFF', '#B8B8B8', '#707070'] }
+        };
+
+        function oneOf(v, list, d) { return list.indexOf(v) >= 0 ? v : d; }
+        function numIn(v, lo, hi, d) { var n = Number(v); return v === '' || v === null || !isFinite(n) ? d : Math.max(lo, Math.min(hi, n)); }
+        function bool(v) { return v === true || v === 'true' || v === 1; }
+        function color(v, d) {
+            if (typeof v !== 'string') return d;
+            if (/^#[0-9a-f]{8}$/i.test(v)) return '#' + v.slice(3);   // Qt #AARRGGBB
+            return /^#[0-9a-f]{6}$/i.test(v) ? v : d;
+        }
+
+        function readSettings() {
+            // iCUE exposes each property as a global of the same name.
+            if (typeof vizStyle !== 'undefined') S.vizStyle = oneOf(vizStyle, ['bars', 'led', 'wave', 'radial'], 'bars');
+            if (typeof layout !== 'undefined') S.layout = oneOf(layout, ['split', 'overlay', 'viz', 'info'], 'split');
+            if (typeof perfMode !== 'undefined') S.perfMode = oneOf(perfMode, ['eco', 'balanced', 'smooth'], 'balanced');
+            if (typeof barCount !== 'undefined') S.barCount = Math.round(numIn(barCount, 8, 96, 48));
+            if (typeof barHeight !== 'undefined') S.barHeight = numIn(barHeight, 10, 100, 70);
+            if (typeof audioSource !== 'undefined') S.audioSource = oneOf(audioSource, ['media+aux', 'media', 'stream', 'gaming', 'chat', 'aux', 'default'], 'media+aux');
+            if (typeof sensitivity !== 'undefined') S.sensitivity = numIn(sensitivity, 1, 100, 50);
+            if (typeof smoothing !== 'undefined') S.smoothing = numIn(smoothing, 0, 95, 40);
+            if (typeof mirror !== 'undefined') S.mirror = bool(mirror);
+            if (typeof roundBars !== 'undefined') S.roundBars = bool(roundBars);
+            if (typeof peakCaps !== 'undefined') S.peakCaps = bool(peakCaps);
+            if (typeof glow !== 'undefined') S.glow = bool(glow);
+            if (typeof showControls !== 'undefined') S.showControls = bool(showControls);
+            if (typeof showProgress !== 'undefined') S.showProgress = bool(showProgress);
+            if (typeof marquee !== 'undefined') S.marquee = bool(marquee);
+            if (typeof textScale !== 'undefined') S.textScale = numIn(textScale, 50, 250, 100);
+            if (typeof demoMode !== 'undefined') S.demoMode = bool(demoMode);
+            if (typeof serverPort !== 'undefined') { var p = String(serverPort).trim(); S.serverPort = /^\d{2,5}$/.test(p) && +p <= 65535 ? p : '16329'; }
+            if (typeof theme !== 'undefined') S.theme = oneOf(theme, ['custom'].concat(Object.keys(THEMES)), 'custom');
+            if (typeof colorMode !== 'undefined') S.colorMode = oneOf(colorMode, ['gradient', 'accent', 'album', 'rainbow'], 'gradient');
+            if (typeof accentColor !== 'undefined') S.accentColor = color(accentColor, '#1DB954');
+            if (typeof albumAccent !== 'undefined') S.albumAccent = bool(albumAccent);
+            if (typeof textColor !== 'undefined') S.textColor = color(textColor, '#F2F2F2');
+            if (typeof backgroundColor !== 'undefined') S.backgroundColor = color(backgroundColor, '#0B0B0F');
+            if (typeof transparency !== 'undefined') S.transparency = numIn(transparency, 0, 100, 100);
+            if (typeof artBackdrop !== 'undefined') S.artBackdrop = bool(artBackdrop);
+        }
+        function perf() { return PERF[S.perfMode] || PERF.balanced; }
+        function now() { return performance.now(); }
+
+        // ── Colors ────────────────────────────────────────────────
+        function hexRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+        function rgbToHsl(c) {
+            var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+            var h = 0, s = 0, l = (mx + mn) / 2, d = mx - mn;
+            if (d) {
+                s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+                h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+                h *= 60;
+            }
+            return [h, s, l];
+        }
+        function hslRgb(h, s, l) {
+            h = ((h % 360) + 360) % 360 / 360;
+            if (!s) return [l * 255, l * 255, l * 255];
+            var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+            function f(t) { t = t < 0 ? t + 1 : t > 1 ? t - 1 : t; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; }
+            return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+        }
+        function css(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + (a === undefined ? 1 : a) + ')'; }
+        function vivid(c) { var h = rgbToHsl(c); return hslRgb(h[0], Math.max(0.55, h[1]), Math.max(0.5, Math.min(0.68, h[2]))); }
+
+        var albumPal = null;     // 3 colors from the current album art
+        var accentRGB = [29, 185, 84];
+
+        function themeObj() { return THEMES[S.theme] || null; }
+        function computeAccent() {
+            if (S.albumAccent && albumPal) return vivid(albumPal[0]);
+            var t = themeObj();
+            return hexRgb(t ? t.accent : S.accentColor);
+        }
+        function palette() {
+            var t = themeObj();
+            if (S.colorMode === 'accent') return [accentRGB, accentRGB];
+            if (S.colorMode === 'rainbow') return [0, 50, 100, 160, 210, 260, 310].map(function (h) { return hslRgb(h, 0.9, 0.6); });
+            if (S.colorMode === 'album' && albumPal) return albumPal.map(vivid);
+            if (t) return t.pal.map(hexRgb);
+            var h = rgbToHsl(accentRGB), s = Math.max(0.6, h[1]);
+            return [hslRgb(h[0] - 45, s, 0.6), hslRgb(h[0], s, 0.56), hslRgb(h[0] + 45, s, 0.62)];
+        }
+
+        // ── DOM ───────────────────────────────────────────────────
+        var $ = function (id) { return document.getElementById(id); };
+        var app = $('app'), root = document.documentElement, cv = $('cv'), ctx = cv.getContext('2d');
+        var artImg = $('art'), backdrop = $('backdrop'), bdCtx = backdrop.getContext('2d');
+        var titleEl = $('title'), artistEl = $('artist'), statusEl = $('status-text'), platformEl = $('platform');
+        // Simple brand marks for the platform label.
+        var PLATFORMS = {
+            spotify: ['Spotify', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1DB954"/><path d="M6 9.2c4-1.2 8.5-.9 12 1.1M6.8 12.6c3.3-.9 6.9-.6 9.8 1M7.6 15.8c2.6-.7 5.3-.4 7.6.8" stroke="#000" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>'],
+            youtube: ['YouTube', '<svg viewBox="0 0 24 24"><rect x="1" y="4.5" width="22" height="15" rx="4.5" fill="#FF0000"/><path d="M10 8.6v6.8l5.8-3.4z" fill="#fff"/></svg>'],
+            twitch: ['Twitch', '<svg viewBox="0 0 24 24"><path d="M4.3 2 3 5.4V20h5v2.6h2.8l2.6-2.6h4l4.6-4.6V2z" fill="#9146FF"/><path d="M5.6 3.8h14.6v10.8l-3 3h-4.6l-2.6 2.6v-2.6H5.6z" fill="#fff"/><path d="M11 7.4h1.8v5H11zm4.6 0h1.8v5h-1.8z" fill="#9146FF"/></svg>']
+        };
+        var shownPlatform = null;
+        function setPlatform(key) {
+            var p = PLATFORMS[key] || null;
+            if (key === shownPlatform) return;
+            shownPlatform = key;
+            app.classList.toggle('has-platform', !!p);
+            platformEl.innerHTML = p ? p[1] + '<span></span>' : '';   // our own constant markup only
+            if (p) platformEl.lastChild.textContent = p[0];
+        }
+        var fillEl = $('fill'), tPos = $('t-pos'), tDur = $('t-dur'), trackEl = $('track'), offlineEl = $('offline');
+        var mediaViewer = null;
+
+        // ── Audio levels ──────────────────────────────────────────
+        var NB = 96;
+        var target = new Float32Array(NB);       // latest levels from the server, 0..1
+        var bars = new Float32Array(0), peaks = new Float32Array(0), peakHold = new Float32Array(0);
+        var barMap = [];                          // per bar: [startBand, endBand)
+        var lastBandsAt = 0, gotSound = false;
+
+        function rebuildBars() {
+            var n = S.barCount;
+            if (bars.length === n) return;
+            bars = new Float32Array(n); peaks = new Float32Array(n); peakHold = new Float32Array(n);
+            barMap = [];
+            for (var i = 0; i < n; i++) {
+                var a = Math.floor(i * NB / n), b = Math.max(a + 1, Math.floor((i + 1) * NB / n));
+                barMap.push([a, b]);
+            }
+        }
+
+        function onBands(b64) {
+            var s;
+            try { s = atob(b64); } catch (e) { return; }
+            var any = false;
+            for (var i = 0; i < NB && i < s.length; i++) { var v = s.charCodeAt(i) / 255; target[i] = v; if (v) any = true; }
+            lastBandsAt = now();
+            if (any) { gotSound = true; wake(); }
+        }
+
+        var demoT0 = now();
+        function demoBands(t) {
+            t = (t - demoT0) / 1000;
+            var beat = Math.pow(Math.max(0, Math.sin(t * Math.PI * 2 * 1.9)), 6);
+            for (var i = 0; i < NB; i++) {
+                var f = i / (NB - 1);
+                var v = (0.78 - f * 0.4) * (0.5 + 0.32 * Math.sin(t * 2.3 + i * 0.33) * Math.sin(t * 0.9 + i * 0.11));
+                if (f < 0.18) v += beat * 0.45 * (1 - f / 0.18);
+                target[i] = Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.06));
+            }
+            lastBandsAt = now();
+        }
+
+        // Moves displayed bars toward the targets; returns true while anything is still visible.
+        function stepBars(dt) {
+            var n = bars.length, gain = Math.pow(S.sensitivity / 50, 0.8), top = S.barHeight / 100;
+            var k = dt * 60;
+            var rise = 1 - Math.pow(0.25, k);
+            var fall = 1 - Math.pow(1 - (1 - S.smoothing / 100 * 0.92) * 0.5, k);
+            var stale = now() - lastBandsAt > 1500;   // server stopped sending: let everything fall
+            var alive = false;
+            for (var i = 0; i < n; i++) {
+                var m = barMap[i], t = 0;
+                if (!stale) for (var j = m[0]; j < m[1]; j++) if (target[j] > t) t = target[j];
+                t = Math.min(1, t * gain) * top;
+                var v = bars[i];
+                v += (t - v) * (t > v ? rise : fall);
+                if (v < 0.002) v = 0;
+                bars[i] = v;
+                if (v >= peaks[i]) { peaks[i] = v; peakHold[i] = 0.35; }
+                else if (peakHold[i] > 0) peakHold[i] -= dt;
+                else peaks[i] = Math.max(v, peaks[i] - 0.9 * dt);
+                if (v > 0 || peaks[i] > 0.003) alive = true;
+            }
+            return alive;
+        }
+
+        // ── Drawing ───────────────────────────────────────────────
+        // A pre-rendered "paint" (horizontal palette x vertical fade) used as a
+        // pattern, so every frame is one fill per layer instead of a gradient per bar.
+        var W = 0, H = 0, cssW = 0, cssH = 0, paint = null, solid = null, texDirty = true;
+
+        function hGrad(c, w, pal, a) {
+            if (pal.length === 1 || S.colorMode === 'accent') return css(pal[0], a);
+            var g = c.createLinearGradient(0, 0, w, 0);
+            for (var i = 0; i < pal.length; i++) g.addColorStop(i / (pal.length - 1), css(pal[i], a));
+            return g;
+        }
+        function buildPaint() {
+            texDirty = false;
+            var pal = palette();
+            solid = hGrad(ctx, W, pal, 1);
+            var tex = document.createElement('canvas');
+            tex.width = Math.max(1, W); tex.height = Math.max(1, H);
+            var t = tex.getContext('2d');
+            t.fillStyle = hGrad(t, W, pal, 1);
+            t.fillRect(0, 0, W, H);
+            t.globalCompositeOperation = 'destination-in';
+            var g = t.createLinearGradient(0, 0, 0, H), lo = S.vizStyle === 'led' ? 0.45 : 0.22;
+            if (S.mirror && S.vizStyle !== 'radial') { g.addColorStop(0, '#000'); g.addColorStop(0.5, 'rgba(0,0,0,' + lo + ')'); g.addColorStop(1, '#000'); }
+            else { g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,' + lo + ')'); }
+            t.fillStyle = g;
+            t.fillRect(0, 0, W, H);
+            paint = ctx.createPattern(tex, 'no-repeat');
+            if (S.vizStyle === 'radial' && ctx.createConicGradient) {
+                var cg = ctx.createConicGradient(-Math.PI / 2, W / 2, H / 2);
+                for (var i = 0; i < pal.length; i++) {
+                    cg.addColorStop(i / (pal.length - 1) * 0.5, css(pal[i]));
+                    cg.addColorStop(1 - i / (pal.length - 1) * 0.5, css(pal[i]));
+                }
+                solid = cg;
+            }
+        }
+
+        function rr(x, y, w, h, r) {
+            if (r > 0.5 && ctx.roundRect) ctx.roundRect(x, y, w, h, Math.min(r, w / 2, Math.abs(h) / 2));
+            else ctx.rect(x, y, w, h);
+        }
+
+        function drawBars() {
+            var n = bars.length, gap = Math.max(1, Math.round(W * 0.004));
+            var bw = (W - gap * (n - 1)) / n, mir = S.mirror;
+            var half = mir ? H / 2 : H, r = S.roundBars ? bw / 2 : 0;
+            var capH = Math.max(2, Math.round(H * 0.014)), minH = Math.max(2, r ? bw * 0.5 : 2);
+            var i, x, h;
+            ctx.beginPath();
+            for (i = 0; i < n; i++) {
+                x = i * (bw + gap); h = Math.max(minH, bars[i] * half * 0.94);
+                if (mir) rr(x, half - h, bw, h * 2, r); else rr(x, H - h, bw, h + r, r);
+            }
+            ctx.fillStyle = paint; ctx.fill();
+            if (!S.peakCaps) return;
+            ctx.beginPath();
+            for (i = 0; i < n; i++) {
+                if (peaks[i] < 0.02) continue;
+                x = i * (bw + gap); h = peaks[i] * half * 0.94 + capH * 1.6;
+                rr(x, half - h, bw, capH, r ? capH / 2 : 0);
+                if (mir) rr(x, half + h - capH, bw, capH, r ? capH / 2 : 0);
+            }
+            if (S.glow) { ctx.globalAlpha = 0.22; ctx.lineWidth = capH; ctx.strokeStyle = solid; ctx.stroke(); ctx.globalAlpha = 1; }
+            ctx.fillStyle = solid; ctx.fill();
+        }
+
+        function drawLed() {
+            var n = bars.length, gap = Math.max(1, Math.round(W * 0.004));
+            var bw = (W - gap * (n - 1)) / n, mir = S.mirror, half = mir ? H / 2 : H;
+            var segH = Math.max(3, Math.min(bw * 0.55, H / 22)), sg = Math.max(1, segH * 0.4), step = segH + sg;
+            var segs = Math.max(1, Math.floor(half / step)), r = S.roundBars ? segH * 0.35 : 0;
+            function seg(x, s) {
+                if (mir) { rr(x, half - (s + 1) * step + sg / 2, bw, segH, r); rr(x, half + s * step + sg / 2, bw, segH, r); }
+                else rr(x, H - (s + 1) * step + sg, bw, segH, r);
+            }
+            var i, s, lit;
+            ctx.beginPath();
+            for (i = 0; i < n; i++) for (s = 0, lit = Math.round(bars[i] * segs); s < lit; s++) seg(i * (bw + gap), s);
+            ctx.fillStyle = paint; ctx.fill();
+            ctx.beginPath();
+            for (i = 0; i < n; i++) for (s = Math.round(bars[i] * segs); s < segs; s++) seg(i * (bw + gap), s);
+            ctx.globalAlpha = 0.07; ctx.fillStyle = solid; ctx.fill(); ctx.globalAlpha = 1;
+            if (!S.peakCaps) return;
+            ctx.beginPath();
+            for (i = 0; i < n; i++) {
+                var pk = Math.round(peaks[i] * segs);
+                if (pk > Math.round(bars[i] * segs)) seg(i * (bw + gap), pk - 1);
+            }
+            if (S.glow) { ctx.globalAlpha = 0.3; ctx.lineWidth = segH; ctx.strokeStyle = solid; ctx.stroke(); ctx.globalAlpha = 1; }
+            ctx.fillStyle = solid; ctx.fill();
+        }
+
+        function wavePath(base, dir, amp, first) {
+            var n = bars.length, dx = W / (n - 1), x0 = 0, y0 = base + dir * bars[0] * amp;
+            if (first) ctx.moveTo(x0, y0); else ctx.lineTo(x0, y0);
+            for (var i = 1; i < n; i++) {
+                var x1 = i * dx, y1 = base + dir * bars[i] * amp;
+                ctx.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+                x0 = x1; y0 = y1;
+            }
+            ctx.lineTo(x0, y0);
+        }
+        function drawWave() {
+            if (bars.length < 2) return;
+            var mir = S.mirror, base = mir ? H / 2 : H, amp = (mir ? H / 2 : H) * 0.92;
+            var lw = Math.max(1.5, H * 0.012);
+            ctx.beginPath();
+            ctx.moveTo(0, base); wavePath(base, -1, amp, false); ctx.lineTo(W, base);
+            if (mir) { wavePath(base, 1, amp, false); }
+            ctx.closePath();
+            ctx.fillStyle = paint; ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1;
+            ctx.beginPath(); wavePath(base, -1, amp, true);
+            if (mir) wavePath(base, 1, amp, true);
+            ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = solid;
+            if (S.glow) { ctx.globalAlpha = 0.22; ctx.lineWidth = lw * 4; ctx.stroke(); ctx.globalAlpha = 1; }
+            ctx.lineWidth = lw; ctx.stroke();
+        }
+
+        var spin = 0;
+        function drawRadial(dt) {
+            var n = bars.length, cx = W / 2, cy = H / 2, m = Math.min(W, H);
+            var r0 = m * 0.2, len = m * 0.27, M = n * 2, step = Math.PI * 2 / M;
+            spin += dt * 0.08;
+            ctx.beginPath();
+            for (var k = 0; k < M; k++) {
+                var v = bars[k < n ? k : M - 1 - k], a = spin - Math.PI / 2 + k * step;
+                var c = Math.cos(a), s = Math.sin(a), l = 1 + v * len;
+                ctx.moveTo(cx + c * r0, cy + s * r0);
+                ctx.lineTo(cx + c * (r0 + l), cy + s * (r0 + l));
+            }
+            var lw = Math.max(1.5, (Math.PI * 2 * r0 / M) * 0.55);
+            ctx.lineCap = S.roundBars ? 'round' : 'butt'; ctx.strokeStyle = solid;
+            if (S.glow) { ctx.globalAlpha = 0.2; ctx.lineWidth = lw * 2.6; ctx.stroke(); ctx.globalAlpha = 1; }
+            ctx.lineWidth = lw; ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, r0 * 0.86, 0, Math.PI * 2);
+            ctx.lineWidth = Math.max(1, lw * 0.4); ctx.globalAlpha = 0.35; ctx.stroke(); ctx.globalAlpha = 1;
+        }
+
+        // ── Frame loop: runs only while something moves ───────────
+        var raf = 0, lastFrame = 0, lastDraw = 0, vizVisible = true;
+        function wake() { if (!raf) { lastFrame = now(); raf = requestAnimationFrame(frame); } }
+        function frame(t) {
+            raf = 0;
+            try {
+                var p = perf();
+                if (t - lastDraw < 1000 / p.fps - 4) { raf = requestAnimationFrame(frame); return; }
+                var dt = Math.min(0.1, Math.max(0.001, (t - lastFrame) / 1000));
+                lastFrame = lastDraw = t;
+                var demo = demoActive();
+                if (demo) demoBands(t);
+                var alive = stepBars(dt);
+                if (vizVisible && W > 0 && H > 0) {
+                    if (texDirty) buildPaint();
+                    ctx.clearRect(0, 0, W, H);
+                    if (alive || demo) {
+                        if (S.vizStyle === 'led') drawLed();
+                        else if (S.vizStyle === 'wave') drawWave();
+                        else if (S.vizStyle === 'radial') drawRadial(dt);
+                        else drawBars();
+                    }
+                }
+                // Keep going while there's motion; otherwise sleep until data or a setting wakes us.
+                if (alive || demo || (now() - lastBandsAt < 300 && gotSound)) raf = requestAnimationFrame(frame);
+            } catch (e) {
+                ctx.globalAlpha = 1;
+                raf = requestAnimationFrame(frame);
+            }
+        }
+
+        function sizeCanvas() {
+            var r = cv.getBoundingClientRect();
+            cssW = r.width; cssH = r.height;
+            vizVisible = cssW > 2 && cssH > 2;
+            var sc = perf().scale * Math.min(2, window.devicePixelRatio || 1);
+            var w = Math.max(1, Math.round(cssW * sc)), h = Math.max(1, Math.round(cssH * sc));
+            if (w !== W || h !== H) { W = cv.width = w; H = cv.height = h; texDirty = true; }
+            wake();
+        }
+
+        // ── Layout ────────────────────────────────────────────────
+        var lastShape = '';
+        function updateLayout() {
+            var w = window.innerWidth, h = window.innerHeight, a = w / Math.max(1, h);
+            root.style.setProperty('--u', (Math.min(w, h) / 100).toFixed(3) + 'px');
+            var small = Math.min(w, h) < 450 && a >= 1.3;
+            var shape = a >= 1.9 || small ? 'shape-wide' : a >= 0.8 ? 'shape-square' : 'shape-tall';
+            app.classList.toggle('size-s', small);
+            if (shape !== lastShape) { app.classList.remove('shape-wide', 'shape-square', 'shape-tall'); app.classList.add(shape); lastShape = shape; }
+            sizeCanvas();
+            refreshMarquee();
+            if (mediaViewer && typeof backgroundMedia !== 'undefined') mediaViewer.show(backgroundMedia);
+        }
+
+        // ── Marquee (only touches the DOM when text or size changes) ──
+        var texts = { title: 'Nothing playing', artist: '' };
+        function setLine(el, text) {
+            var span = el.firstElementChild;
+            el.classList.remove('scroll');
+            span.textContent = text;
+            if (!S.marquee || !text || span.offsetWidth <= el.clientWidth + 1) return;
+            var sep = ' • ';
+            span.textContent = text + sep;
+            var dist = span.offsetWidth;
+            span.textContent = text + sep + text;
+            el.style.setProperty('--dist', -dist + 'px');
+            el.style.setProperty('--dur', Math.max(6, dist / (parseFloat(getComputedStyle(el).fontSize) * 2.2)) + 's');
+            el.classList.add('scroll');
+        }
+        function refreshMarquee() { setLine(titleEl, texts.title); setLine(artistEl, texts.artist); }
+
+        // ── Track state + progress ────────────────────────────────
+        var playing = false, pos = 0, dur = 0, posAt = now(), shownSec = -1, shownDur = -1;
+        function fmt(s) { s = Math.max(0, Math.floor(s)); var m = Math.floor(s / 60), h = Math.floor(m / 60); s %= 60; m %= 60; return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+        function elapsed() { return Math.min(dur || Infinity, pos + (playing ? (now() - posAt) / 1000 : 0)); }
+        function setPlaying(p) {
+            // Re-anchor only on a real play/pause change. Resetting posAt on every
+            // media update (1/s) without saving the elapsed time made the bar jump back.
+            if (p !== playing) { pos = elapsed(); posAt = now(); }
+            playing = p;
+            app.classList.toggle('playing', p);
+            statusEl.textContent = p ? 'Now Playing' : (texts.title === 'Nothing playing' ? 'Idle' : 'Paused');
+        }
+        function tickProgress() {
+            if (!S.showProgress || !dur) return;
+            var e = elapsed();
+            fillEl.style.transform = 'scaleX(' + (e / dur).toFixed(4) + ')';
+            var sec = Math.floor(e);
+            if (sec !== shownSec) { shownSec = sec; tPos.textContent = fmt(sec); }
+            if (Math.floor(dur) !== shownDur) { shownDur = Math.floor(dur); tDur.textContent = fmt(dur); }
+        }
+        function onMedia(m) {
+            var title = m.title || 'Nothing playing', artist = m.artist || '';
+            if (title !== texts.title || artist !== texts.artist) {
+                texts.title = title; texts.artist = artist;
+                refreshMarquee();
+            }
+            var d = Number(m.dur) || 0, p = Number(m.pos) || 0;
+            if (d > 0) {
+                // Re-sync only on real drift so the bar doesn't jitter every second.
+                if (Math.abs(p - elapsed()) > 2.5 || d !== dur || !!m.playing !== playing) { pos = p; posAt = now(); }
+            } else { pos = 0; }
+            dur = d;
+            app.classList.toggle('no-dur', !(d > 0));
+            app.classList.toggle('live', !!m.live);
+            setPlatform(m.platform || '');
+            if (!(d > 0)) { fillEl.style.transform = 'scaleX(0)'; tPos.textContent = tDur.textContent = '0:00'; shownSec = shownDur = -1; }
+            setPlaying(!!m.playing);
+            if (!m.title) { fillEl.style.transform = 'scaleX(0)'; tPos.textContent = '0:00'; tDur.textContent = '0:00'; shownSec = shownDur = -1; }
+        }
+
+        // ── Album art: image, backdrop, palette ───────────────────
+        var artUrl = '';
+        function onArt(url) {
+            if (url === artUrl) return;
+            artUrl = url || '';
+            if (!artUrl) { app.classList.remove('has-art'); setAlbumPalette(null); drawBackdrop(); return; }
+            artImg.src = artUrl;
+        }
+        artImg.addEventListener('load', function () {
+            app.classList.add('has-art');
+            try {
+                var c = document.createElement('canvas'); c.width = c.height = 24;
+                var x = c.getContext('2d'); x.drawImage(artImg, 0, 0, 24, 24);
+                setAlbumPalette(extractPalette(x.getImageData(0, 0, 24, 24).data));
+            } catch (e) { setAlbumPalette(null); }
+            drawBackdrop();
+        });
+        artImg.addEventListener('error', function () { app.classList.remove('has-art'); setAlbumPalette(null); drawBackdrop(); });
+
+        function extractPalette(d) {
+            var bins = [];
+            for (var i = 0; i < d.length; i += 4) {
+                var c = [d[i], d[i + 1], d[i + 2]], h = rgbToHsl(c);
+                if (h[2] < 0.12 || h[2] > 0.9) continue;
+                var b = Math.floor(h[0] / 30) % 12, w = 0.3 + h[1];
+                if (!bins[b]) bins[b] = { r: 0, g: 0, b: 0, w: 0 };
+                bins[b].r += c[0] * w; bins[b].g += c[1] * w; bins[b].b += c[2] * w; bins[b].w += w;
+            }
+            var top = bins.filter(Boolean).sort(function (a, b) { return b.w - a.w; }).slice(0, 3)
+                .map(function (v) { return [v.r / v.w, v.g / v.w, v.b / v.w]; });
+            if (!top.length) return null;
+            while (top.length < 3) { var hh = rgbToHsl(top[0]); top.push(hslRgb(hh[0] + 35 * top.length, Math.max(0.4, hh[1]), hh[2])); }
+            return top;
+        }
+        function setAlbumPalette(p) {
+            albumPal = p;
+            applyColors();
+        }
+        function drawBackdrop() {
+            var on = S.artBackdrop && artUrl && app.classList.contains('has-art');
+            document.body.classList.toggle('has-backdrop', !!on);
+            if (!on) return;
+            var w = backdrop.width, h = backdrop.height, iw = artImg.naturalWidth || 1, ih = artImg.naturalHeight || 1;
+            var s = Math.max(w / iw, h / ih) * 1.25;
+            bdCtx.clearRect(0, 0, w, h);
+            if ('filter' in bdCtx) bdCtx.filter = 'blur(2px) saturate(1.3)';
+            bdCtx.drawImage(artImg, (w - iw * s) / 2, (h - ih * s) / 2, iw * s, ih * s);
+            if ('filter' in bdCtx) bdCtx.filter = 'none';
+        }
+
+        // ── Connection ────────────────────────────────────────────
+        var ws = null, wsPort = '', retry = null, backoff = 800, connected = false;
+        function connect() {
+            clearTimeout(retry);
+            if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; try { ws.close(); } catch (e) {} }
+            ws = null; wsPort = S.serverPort;
+            if (connected) setConnected(false);   // the old socket's onclose was detached above
+            var sock;
+            try { sock = new WebSocket('ws://localhost:' + wsPort); } catch (e) { scheduleRetry(); return; }
+            ws = sock;
+            sock.onopen = function () { if (ws !== sock) return; backoff = 800; sentSource = ''; setConnected(true); sendSource(); };
+            sock.onmessage = function (ev) {
+                if (ws !== sock || typeof ev.data !== 'string') return;
+                var d = ev.data;
+                if (d.charCodeAt(2) === 98 && d.indexOf('{"b":"') === 0) { onBands(d.slice(6, -2)); return; }  // hot path, no JSON.parse
+                var m;
+                try { m = JSON.parse(d); } catch (e) { return; }
+                if (m.type === 'media') onMedia(m);
+                else if (m.type === 'art') onArt(m.artUrl);
+            };
+            sock.onclose = function () { if (ws !== sock) return; ws = null; setConnected(false); scheduleRetry(); };
+            sock.onerror = function () { /* onclose follows */ };
+        }
+        function scheduleRetry() { clearTimeout(retry); retry = setTimeout(connect, backoff); backoff = Math.min(10000, backoff * 1.6); }
+        function setConnected(c) {
+            connected = c;
+            offlineEl.textContent = 'Server offline · port ' + S.serverPort;
+            app.classList.toggle('offline', !c && !S.demoMode);
+            app.classList.toggle('demo', !c && S.demoMode);
+            if (!c && S.demoMode) onMedia({ title: 'Demo mode', artist: 'Start the XE Visualizer server', playing: true });
+            else if (!c) onMedia({});
+            wake();
+        }
+        function demoActive() { return !connected && S.demoMode; }
+        var sentSource = '';
+        function sendSource() {
+            if (!ws || ws.readyState !== 1 || sentSource === S.audioSource) return;
+            try { ws.send(JSON.stringify({ type: 'config', source: S.audioSource })); sentSource = S.audioSource; } catch (e) {}
+        }
+        function send(action, extra) {
+            if (!ws || ws.readyState !== 1) return;
+            var msg = { type: 'control', action: action };
+            if (extra) for (var k in extra) msg[k] = extra[k];
+            try { ws.send(JSON.stringify(msg)); } catch (e) {}
+        }
+
+        $('controls').addEventListener('click', function (ev) {
+            var b = ev.target.closest ? ev.target.closest('[data-action]') : null;
+            if (!b) return;
+            var a = b.getAttribute('data-action');
+            send(a);
+            if (a === 'playpause') setPlaying(!playing);   // optimistic; next media update confirms
+        });
+        trackEl.addEventListener('click', function (ev) {
+            if (!dur) return;
+            var r = trackEl.getBoundingClientRect();
+            var f = Math.max(0, Math.min(1, (ev.clientX - r.left) / Math.max(1, r.width)));
+            pos = f * dur; posAt = now();
+            tickProgress();
+            send('seek', { position: Math.round(pos * 100) / 100 });
+        });
+
+        // ── Applying settings ─────────────────────────────────────
+        function applyColors() {
+            accentRGB = computeAccent();
+            var t = themeObj();
+            root.style.setProperty('--accent', css(accentRGB));
+            root.style.setProperty('--text', t ? t.text : S.textColor);
+            root.style.setProperty('--bg-rgb', hexRgb(t ? t.bg : S.backgroundColor).join(','));
+            texDirty = true;
+            wake();
+        }
+        function applySettings() {
+            readSettings();
+            root.style.setProperty('--bg-a', S.transparency / 100);
+            root.style.setProperty('--ts', S.textScale / 100);
+            app.className = app.className.replace(/\blayout-\w+/g, '').trim() + ' layout-' + S.layout;
+            app.classList.toggle('no-controls', !S.showControls);
+            app.classList.toggle('no-progress', !S.showProgress);
+            rebuildBars();
+            applyColors();
+            drawBackdrop();
+            if (mediaViewer) mediaViewer.show(typeof backgroundMedia !== 'undefined' ? backgroundMedia : null);
+            if (S.serverPort !== wsPort) connect(); else sendSource();
+            setConnected(connected);
+            updateLayout();
+        }
+
+        var started = false;
+        function init() {
+            if (started) { applySettings(); return; }
+            started = true;
+            mediaViewer = new MediaViewer($('media-background'));
+            applySettings();
+            window.addEventListener('resize', updateLayout);
+            if (window.ResizeObserver) new ResizeObserver(sizeCanvas).observe($('viz'));
+            setInterval(tickProgress, 250);
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) { applySettings(); wake(); } });
+        }
+
+        return { init: init, applySettings: applySettings };
+    })();
+
+    if (typeof iCUE_initialized !== 'undefined') { if (iCUE_initialized) XEV.init(); }
+    else XEV.init();   // opened outside iCUE (browser preview)
+    </script>
+</body>
+</html>

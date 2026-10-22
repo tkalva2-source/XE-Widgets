@@ -1,0 +1,20 @@
+{
+  "author": "Tkalva",
+  "id": "com.xewidgets.chat",
+  "name": "XE Chat",
+  "description": "Fast Twitch chat with 7TV, BTTV and FFZ emotes, stream info, a live stream preview and moderation tools for the Xeneon Edge. Note: the small preview on this page doesn't show the real layout. Use the settings button on the widget on your Edge to adjust it.",
+  "version": "2.0.0",
+  "preview_icon": "resources/icon.svg",
+  "min_framework_version": "1.0.0",
+  "os": [
+    {
+      "platform": "windows"
+    }
+  ],
+  "supported_devices": [
+    {
+      "type": "dashboard_lcd"
+    }
+  ],
+  "interactive": true
+}
