@@ -677,13 +677,14 @@
 
         // Long channel names shrink to fit instead of being cut off
         function fitName() {
-            var n = $('chname'); n.style.fontSize = ''; body.classList.remove('long-name');
+            var n = $('chname'), row = $('l1'); n.style.fontSize = ''; body.classList.remove('long-name');
+            function over() { return n.scrollWidth > n.clientWidth + 1 || row.scrollWidth > row.clientWidth + 1; }   // name or LIVE cut off
             var size = parseFloat(getComputedStyle(n).fontSize);
-            while (n.scrollWidth > n.clientWidth + 1 && size > 13) { size -= 1; n.style.fontSize = size + 'px'; }
-            if (n.scrollWidth > n.clientWidth + 1) {   // still too long: LIVE moves onto the avatar to make room
+            while (over() && size > 13) { size -= 1; n.style.fontSize = size + 'px'; }
+            if (over()) {   // still too long: LIVE moves onto the avatar to make room
                 body.classList.add('long-name'); n.style.fontSize = '';
                 size = parseFloat(getComputedStyle(n).fontSize);
-                while (n.scrollWidth > n.clientWidth + 1 && size > 12) { size -= 1; n.style.fontSize = size + 'px'; }
+                while (over() && size > 12) { size -= 1; n.style.fontSize = size + 'px'; }
             }
         }
         window.addEventListener('resize', function () { fitName(); });
@@ -835,8 +836,9 @@
         // Cosmetic definitions load once; each chatter is looked up once, in batches.
         var STV_GQL = 'https://7tv.io/v3/gql', stvPaints = null, stvBadges = {}, stvUsers = Object.create(null), stvQueue = [], stvTimer = 0;
         // Remember who has which paint for 12h so returning chatters show up styled instantly
-        var STV_KEY = 'xechat.stv', stvSaveT = 0;
-        try { var stvSaved = JSON.parse(localStorage.getItem(STV_KEY) || 'null'); if (stvSaved && Date.now() - stvSaved.t < 43200000) Object.keys(stvSaved.u).forEach(function (k) { var v = stvSaved.u[k]; stvUsers[k] = v ? { paint: v[0], badge: v[1] } : false; }); } catch (e) {}
+        var STV_KEY = 'xechat.stv2', stvSaveT = 0;
+        try { var stvSaved = JSON.parse(localStorage.getItem(STV_KEY) || 'null'); if (stvSaved && Date.now() - stvSaved.t >= 43200000) stvSaved = null;
+        if (stvSaved) Object.keys(stvSaved.u).forEach(function (k) { var v = stvSaved.u[k]; stvUsers[k] = v ? { paint: v[0], badge: v[1] } : false; }); } catch (e) {}
         function stvSave() {
             clearTimeout(stvSaveT);
             stvSaveT = setTimeout(function () {
@@ -866,7 +868,7 @@
         function loadStvCosmetics() {
             stvPaints = {};
             stvGql('{ cosmetics { paints { id function color angle shape image_url repeat stops { at color } shadows { x_offset y_offset radius color } } badges { id tooltip host { url } } } }').then(function (j) {
-                var cs = j && j.data && j.data.cosmetics; if (!cs) return;
+                var cs = j && j.data && j.data.cosmetics; if (!cs) { setTimeout(loadStvCosmetics, 30000); return; }
                 cs.paints.forEach(function (p) {
                     var stops = (p.stops || []).map(function (st) { return stvColor(st.color) + ' ' + (st.at * 100) + '%'; }).join(', ');
                     var bg = '';
@@ -877,7 +879,7 @@
                 });
                 cs.badges.forEach(function (b) { stvBadges[b.id] = { url: 'https:' + b.host.url + '/2x.webp', title: b.tooltip }; });
                 Object.keys(stvUsers).forEach(function (uid) { if (stvUsers[uid]) stvRefresh(uid); });
-            }).catch(function (e) { diag('7tv cosmetics failed', e.message); });
+            }).catch(function (e) { diag('7tv cosmetics failed', e.message); setTimeout(loadStvCosmetics, 30000); });
         }
         function stvStyle(nm, uid) {
             if (!uid || !/^\d+$/.test(uid)) return;
@@ -923,7 +925,7 @@
                     (u ? stvPreload(u) : Promise.resolve()).then(function () { stvUsers[uid] = u; if (u) stvRefresh(uid); kickFlush(); });
                     stvSave();
                 });
-            }).catch(function () { batch.forEach(function (uid) { stvUsers[uid] = false; }); kickFlush(); });
+            }).catch(function () { batch.forEach(function (uid) { delete stvUsers[uid]; }); kickFlush(); });
             if (stvQueue.length) stvTimer = setTimeout(stvFlush, 120);
         }
 
