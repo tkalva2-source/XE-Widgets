@@ -117,6 +117,7 @@ class AudioCapture:
         if src != "default":
             for key in src.split("+"):
                 found += [d for d in loopbacks if SOURCES[key].lower() in d["name"].lower()][:1]
+        self._fallback = src != "default" and not found   # wanted devices missing (e.g. Sonar still starting)
         if found:
             return found
         try:
@@ -134,7 +135,19 @@ class AudioCapture:
 
     def start(self):
         self._running = True
+        self._started = time.time()
         threading.Thread(target=self._capture_loop, daemon=True).start()
+        threading.Thread(target=self._rescan_watch, daemon=True).start()
+
+    def _rescan_watch(self):
+        """Right after Windows starts, virtual devices such as SteelSeries Sonar can appear after the
+        server does. PortAudio only lists devices when it is (re)initialised, so while the wanted
+        devices are missing, restart capture every 15 s for the first 5 minutes."""
+        while self._running and time.time() - self._started < 300:
+            time.sleep(15)
+            if getattr(self, "_fallback", False):
+                log.info("Audio devices not ready yet, rescanning")
+                self._restart = True
 
     def stop(self):
         self._running = False

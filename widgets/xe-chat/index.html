@@ -1838,8 +1838,8 @@
         })($('sheet'));
 
         // Settings sheet
-        $('meta').addEventListener('click', function () { openSheet('settings'); renderSettings(); });   // tap the channel name to switch
-        $('qbtn').addEventListener('click', function () { if (sheetKind === 'settings') closeSheet(); else { openSheet('settings'); renderSettings(); } });
+        $('meta').addEventListener('click', function () { pvDevices = null; openSheet('settings'); renderSettings(); });   // fresh output list each time   // tap the channel name to switch
+        $('qbtn').addEventListener('click', function () { if (sheetKind === 'settings') closeSheet(); else { pvDevices = null; openSheet('settings'); renderSettings(); } });
         // Followed channels, live first (like Chatterino). Cached for a minute.
         var followed = null, followedAt = 0;
         async function loadFollowed() {
