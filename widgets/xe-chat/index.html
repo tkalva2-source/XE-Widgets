@@ -418,7 +418,7 @@
         /* Painted names: the see-through text shadow showed through the paint and made it look dark */
         .n.paint { text-shadow: none; }
         .at { padding: 0 0.4em; border-radius: 99px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85); font-weight: 650; }
-        #l2.mq { text-overflow: clip; }
+        #l2.mq, #l2.tclip { text-overflow: clip; }
         #l2.mq > span { position: relative; animation: mq var(--mqd) linear infinite alternate; }
         @keyframes mq { 0%, 15% { left: 0; } 85%, 100% { left: var(--mq); } }
 
@@ -776,9 +776,19 @@
         }
         // Scroll the game · title line back and forth when it doesn't fit
         function fitTitle() {
-            var l2 = $('l2'); l2.classList.remove('mq');
-            var over = l2.scrollWidth - l2.clientWidth;
-            if (over > 4) { l2.style.setProperty('--mq', -over + 'px'); l2.style.setProperty('--mqd', Math.max(6, over / 25) + 's'); l2.classList.add('mq'); }
+            var l2 = $('l2'), parts = Array.prototype.filter.call(l2.children, function (e) { return e.offsetWidth; });
+            if (!parts.length) { l2.classList.remove('mq'); return; }
+            // Exact (fractional) widths: a title that overflows by one emoji must still scroll.
+            // Rects are in screen pixels (header zoom applied), so convert back to the header's own pixels.
+            var cs = getComputedStyle(l2), box = l2.getBoundingClientRect(), z = box.width / l2.offsetWidth || 1;
+            var text = parts[parts.length - 1].getBoundingClientRect().right - parts[0].getBoundingClientRect().left;   // scroll offset moves all parts equally
+            var raw = (text - (box.width - (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) * z)) / z;   // overflow in header px
+            l2.classList.toggle('tclip', raw > 0 && raw <= 3);   // a hair too long: show it all instead of swapping the end for "…"
+            if (raw <= 3) { l2.classList.remove('mq'); return; }
+            var over = Math.ceil(raw) + 2;
+            if (l2.classList.contains('mq') && Math.abs(parseFloat(l2.style.getPropertyValue('--mq')) + over) < 3) return;   // already scrolling this far
+            l2.classList.remove('mq'); void l2.offsetWidth;   // restart cleanly with the new distance
+            l2.style.setProperty('--mq', -over + 'px'); l2.style.setProperty('--mqd', Math.max(6, over / 25) + 's'); l2.classList.add('mq');
         }
         window.addEventListener('resize', function () { setTimeout(fitTitle, 100); });
         // Re-fit the name and title once the font has loaded and whenever the header changes size
@@ -1025,10 +1035,10 @@
             $('stitle').textContent = st ? fixMojibake(st.title) : (u.followers != null ? fmtNum(u.followers) + ' followers · offline' : 'offline');
             $('s-viewers').textContent = st ? fmtNum(st.viewersCount) : '–';
             $('pv-views').textContent = st ? fmtNum(st.viewersCount) : '';
-            fitTitle();
+            refitHeader();   // after viewers/uptime/title are filled in: their widths decide what fits
             if (pickerOpen) renderTabs();
         }
-        setInterval(function () { var m = Math.floor((Date.now() - room.startedAt) / 60000), t = room.live && room.startedAt ? (m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60) + 'm' : m + 'm') : '–'; var u = $('s-uptime'); if (u.textContent !== t) u.textContent = t; }, 1000);
+        setInterval(function () { var m = Math.floor((Date.now() - room.startedAt) / 60000), t = room.live && room.startedAt ? (m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60) + 'm' : m + 'm') : '–'; var u = $('s-uptime'); if (u.textContent !== t) { var grew = u.textContent.length !== t.length; u.textContent = t; if (grew) refitHeader(); } }, 1000);
         function loadChannelExtras() {
             var id = room.id, login = room.login;
             extrasReady = Promise.all([
@@ -1541,7 +1551,7 @@
             modes = { slow: 0, emote: false, sub: false, follow: -1, shield: false }; renderModes();
             isMod = false; body.classList.remove('is-mod', 'is-live');
             chat.textContent = ''; pinned = true; body.classList.remove('paused');
-            $('chname').textContent = login; fitName(); $('game').textContent = ''; $('stitle').textContent = ''; $('avatar').removeAttribute('src');
+            $('chname').textContent = login; $('game').textContent = ''; $('stitle').textContent = ''; refitHeader(); $('avatar').removeAttribute('src');
             $('s-viewers').textContent = '–'; $('verified').classList.add('hidden');
             $('empty').style.display = 'none';
             sysMsg('Joined ', false, login);
