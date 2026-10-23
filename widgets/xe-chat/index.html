@@ -512,6 +512,11 @@
         .rp-l { height: calc(var(--fs) * 0.68 * 1.35); margin-bottom: 3px; }
         .rp-l svg.i { width: 1em; height: 1em; flex: none; }
 
+        .stats-tight #stats small { display: none; }
+        .stats-tight #stats div { padding: 0 5px; }
+        .stats-tight #stats b { padding: 2px 7px; }
+        .stats-min #stats div:nth-child(2) { display: none; }
+
         /* ═══ Header layout (last so it wins) ═══
            Row 1: avatar, name box (name, verified, LIVE), viewers, uptime, buttons, as before.
            Row 2: a full-width box with the game and title (or followers when offline). */
@@ -691,15 +696,16 @@
 
         // Long channel names shrink to fit instead of being cut off
         function fitName() {
-            var n = $('chname'), row = $('l1'); n.style.fontSize = ''; body.classList.remove('long-name');
-            function over() { return n.scrollWidth > n.clientWidth + 1 || row.scrollWidth > row.clientWidth + 1; }   // name or LIVE cut off
-            var size = parseFloat(getComputedStyle(n).fontSize);
-            while (over() && size > 13) { size -= 1; n.style.fontSize = size + 'px'; }
-            if (over()) {   // still too long: LIVE moves onto the avatar to make room
-                body.classList.add('long-name'); n.style.fontSize = '';
-                size = parseFloat(getComputedStyle(n).fontSize);
-                while (over() && size > 12) { size -= 1; n.style.fontSize = size + 'px'; }
-            }
+            // The channel name (with LIVE) always stays readable. When space runs out, step down:
+            // shrink the name a little, hide the VIEWERS/UPTIME labels, move LIVE onto the avatar, hide uptime.
+            var n = $('chname'), row = $('l1');
+            function over() { return n.scrollWidth > n.clientWidth + 1 || row.scrollWidth > row.clientWidth + 1; }
+            function shrink(min) { var size = parseFloat(getComputedStyle(n).fontSize); while (over() && size > min) { size -= 1; n.style.fontSize = size + 'px'; } }
+            n.style.fontSize = ''; body.classList.remove('long-name', 'stats-tight', 'stats-min');
+            shrink(15); if (!over()) return;
+            body.classList.add('stats-tight'); n.style.fontSize = ''; shrink(14); if (!over()) return;
+            body.classList.add('long-name'); n.style.fontSize = ''; shrink(14); if (!over()) return;
+            body.classList.add('stats-min'); n.style.fontSize = ''; shrink(12);
         }
         window.addEventListener('resize', function () { fitName(); });
         function uiZoom() {   // Stream Info Size, shrunk on narrow widgets so the bar and chat box always fit
@@ -775,6 +781,12 @@
             if (over > 4) { l2.style.setProperty('--mq', -over + 'px'); l2.style.setProperty('--mqd', Math.max(6, over / 25) + 's'); l2.classList.add('mq'); }
         }
         window.addEventListener('resize', function () { setTimeout(fitTitle, 100); });
+        // Re-fit the name and title once the font has loaded and whenever the header changes size
+        // (Stream Info Size, LIVE appearing, layout settling); measuring earlier gives wrong widths.
+        var refitRaf = 0;
+        function refitHeader() { cancelAnimationFrame(refitRaf); refitRaf = requestAnimationFrame(function () { fitName(); fitTitle(); }); }
+        if (document.fonts) document.fonts.ready.then(refitHeader);
+        new ResizeObserver(refitHeader).observe($('hdr'));
         async function getJSON(url, opts) {
             var r;
             try { r = await fetch(url, opts); }
@@ -1008,6 +1020,7 @@
             room.live = !!st; setTimeout(previewSync, 0);
             room.startedAt = st ? Date.parse(st.createdAt) : 0;
             body.classList.toggle('is-live', room.live);
+            fitName();   // LIVE just appeared or went away
             $('game').textContent = st && st.game ? st.game.displayName : '';
             $('stitle').textContent = st ? fixMojibake(st.title) : (u.followers != null ? fmtNum(u.followers) + ' followers · offline' : 'offline');
             $('s-viewers').textContent = st ? fmtNum(st.viewersCount) : '–';
