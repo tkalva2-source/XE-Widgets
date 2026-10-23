@@ -187,12 +187,7 @@
         body.pv-on.is-live:not(.theater) .ev { margin: 4px 10px; padding: 7px 12px; grid-template-columns: minmax(0, 1fr); }
 
         /* ═══ v3 overhaul ═══ */
-        body {
-            background:
-                radial-gradient(90% 55% at 0% 0%, color-mix(in srgb, var(--accent) calc(var(--bg-a) * 20%), transparent), transparent 70%),
-                radial-gradient(70% 45% at 100% 100%, color-mix(in srgb, var(--accent) calc(var(--bg-a) * 10%), transparent), transparent 70%),
-                rgba(var(--bg-rgb), var(--bg-a));
-        }
+        /* (no extra background layers: the widget background is just Background Color at Background Opacity) */
         /* header: the earlier layout, with the name fix (mode tags no longer squeeze the channel name) */
         /* name row: LIVE always stays beside the name; mode tags give way first, then the name truncates */
         #chname { flex: 0 1 auto; min-width: 2.5em; }
@@ -521,9 +516,13 @@
            Row 1: avatar, name box (name, verified, LIVE), viewers, uptime, buttons, as before.
            Row 2: a full-width box with the game and title (or followers when offline). */
         #hdr { height: auto; flex-wrap: wrap; row-gap: 6px; padding: 8px 10px 4px; }
-        #meta { height: 54px; justify-content: center; }
+        #meta { height: 54px; justify-content: center; flex: 0 1 auto; }   /* hugs the name, shrinks only when it must */
+        #stats { margin-left: auto; }   /* viewers and uptime sit on the right of the top row */
+        /* the preview and settings buttons move down beside the title, leaving the top row to the name and stats */
+        #eyebtn, .vr, #modbtn, #qbtn { order: 11; height: 36px; width: 36px; }
+        .vr { display: none; }
         #stats { height: 54px; }
-        #l2 { order: 10; flex: 0 0 100%; margin: 0; height: 32px; line-height: 32px; padding: 0 14px; border-radius: 12px; font-size: 13.5px; }
+        #l2 { order: 10; flex: 1 1 calc(100% - 150px); margin: 0; height: 32px; line-height: 32px; padding: 0 14px; border-radius: 12px; font-size: 13.5px; }
     </style>
 </head>
 <body class="no-ts">
@@ -696,16 +695,19 @@
 
         // Long channel names shrink to fit instead of being cut off
         function fitName() {
-            // The channel name (with LIVE) always stays readable. When space runs out, step down:
-            // shrink the name a little, hide the VIEWERS/UPTIME labels, move LIVE onto the avatar, hide uptime.
+            // The channel name (with LIVE) always stays readable; viewers and uptime always stay as they are.
+            // When space runs out: shrink the name a little, then move LIVE onto the avatar.
             var n = $('chname'), row = $('l1');
             function over() { return n.scrollWidth > n.clientWidth + 1 || row.scrollWidth > row.clientWidth + 1; }
             function shrink(min) { var size = parseFloat(getComputedStyle(n).fontSize); while (over() && size > min) { size -= 1; n.style.fontSize = size + 'px'; } }
-            n.style.fontSize = ''; body.classList.remove('long-name', 'stats-tight', 'stats-min');
+            // The name box hugs the name but may only use the room the other top-row items leave,
+            // so it gives way (instead of pushing the buttons onto a new line).
+            var hdr = $('hdr'), hcs = getComputedStyle(hdr), gap = parseFloat(hcs.columnGap) || 8, used = 0, items = 0;
+            ['avatar', 'stats'].forEach(function (id) { var e = $(id); if (e.offsetWidth) { used += e.offsetWidth; items++; } });   // the top row's other items
+            $('meta').style.maxWidth = Math.max(60, hdr.clientWidth - parseFloat(hcs.paddingLeft) - parseFloat(hcs.paddingRight) - used - gap * items - 1) + 'px';
+            n.style.fontSize = ''; body.classList.remove('long-name');
             shrink(15); if (!over()) return;
-            body.classList.add('stats-tight'); n.style.fontSize = ''; shrink(14); if (!over()) return;
-            body.classList.add('long-name'); n.style.fontSize = ''; shrink(14); if (!over()) return;
-            body.classList.add('stats-min'); n.style.fontSize = ''; shrink(12);
+            body.classList.add('long-name'); n.style.fontSize = ''; shrink(12);
         }
         window.addEventListener('resize', function () { fitName(); });
         function uiZoom() {   // Stream Info Size, shrunk on narrow widgets so the bar and chat box always fit
@@ -713,7 +715,7 @@
             var z = S.headerScale / 100 * narrow;
             root.style.setProperty('--fs', (20 * S.textScale / 100 * (L.zoom || 1) * Math.max(0.6, narrow)).toFixed(2) + 'px');
             ['hdr', 'composer', 'suggest', 'picker'].forEach(function (id) { $(id).style.zoom = z; });
-            fitName();
+            refitHeader();
         }
         window.addEventListener('resize', function () { uiZoom(); });
         function apply() {
@@ -791,12 +793,13 @@
             l2.style.setProperty('--mq', -over + 'px'); l2.style.setProperty('--mqd', Math.max(6, over / 25) + 's'); l2.classList.add('mq');
         }
         window.addEventListener('resize', function () { setTimeout(fitTitle, 100); });
-        // Re-fit the name and title once the font has loaded and whenever the header changes size
-        // (Stream Info Size, LIVE appearing, layout settling); measuring earlier gives wrong widths.
+        // Re-fit the name and title after the stream info loads, on settings changes and on resize.
+        // No ResizeObserver / fonts.ready here: on the Xeneon Edge they trigger iCUE's redraw bug that
+        // stops clearing old frames, so the see-through background stacks up into a solid one.
         var refitRaf = 0;
         function refitHeader() { cancelAnimationFrame(refitRaf); refitRaf = requestAnimationFrame(function () { fitName(); fitTitle(); }); }
-        if (document.fonts) document.fonts.ready.then(refitHeader);
-        new ResizeObserver(refitHeader).observe($('hdr'));
+        window.addEventListener('resize', refitHeader);
+        setTimeout(refitHeader, 1500);   // once the font has had time to load
         async function getJSON(url, opts) {
             var r;
             try { r = await fetch(url, opts); }
