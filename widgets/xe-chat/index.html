@@ -505,19 +505,20 @@
             background: var(--raised); border: 1px solid var(--line-2); color: var(--text); font-size: 14px; font-weight: 550; box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.8); }
         #toast.show { display: block; }
         #toast.err { border-color: rgba(255, 79, 94, 0.6); color: #FFB3B9; }
-            /* ═══ Header layout (last so it wins) ═══
-           Row 1: avatar, a wide name box (name, verified, LIVE), preview and settings buttons.
-           Row 2: game and title (or followers when offline), then compact viewers and uptime. */
-        #hdr { height: auto; flex-wrap: wrap; row-gap: 6px; column-gap: 8px; padding: 8px 10px 4px; }
-        #meta { order: 1; flex: 1 1 50%; height: 50px; justify-content: center; }
-        #avatar { order: 0; }
-        #eyebtn, .vr, #modbtn, #qbtn { order: 2; }
-        #l2 { order: 3; flex: 1 1 40%; min-width: 0; margin: 0; height: 36px; line-height: 36px; padding: 0 14px; border-radius: 12px; font-size: 13.5px; }
-        #stats { order: 4; height: 36px; gap: 6px; align-self: center; }
-        #stats div { flex-direction: row; align-items: center; gap: 7px; height: 36px; padding: 0 6px 0 11px; border-radius: 12px; }
-        #stats small { font-size: 9px; }
-        #stats b { margin: 0; }
-        #chname { font-size: 19px; }
+            /* Replies: top-align the row so the reply line sits right under the row's top edge,
+           and drop the timestamp to the message line (baseline alignment had pushed everything down) */
+        .r.rp { align-items: start; }
+        .rp > .t { padding-top: calc(var(--fs) * 0.68 * 1.35 + 3px); }
+        .rp-l { height: calc(var(--fs) * 0.68 * 1.35); margin-bottom: 3px; }
+        .rp-l svg.i { width: 1em; height: 1em; flex: none; }
+
+        /* ═══ Header layout (last so it wins) ═══
+           Row 1: avatar, name box (name, verified, LIVE), viewers, uptime, buttons, as before.
+           Row 2: a full-width box with the game and title (or followers when offline). */
+        #hdr { height: auto; flex-wrap: wrap; row-gap: 6px; padding: 8px 10px 4px; }
+        #meta { height: 54px; justify-content: center; }
+        #stats { height: 54px; }
+        #l2 { order: 10; flex: 0 0 100%; margin: 0; height: 32px; line-height: 32px; padding: 0 14px; border-radius: 12px; font-size: 13.5px; }
     </style>
 </head>
 <body class="no-ts">
