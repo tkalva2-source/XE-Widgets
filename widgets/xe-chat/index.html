@@ -505,6 +505,19 @@
             background: var(--raised); border: 1px solid var(--line-2); color: var(--text); font-size: 14px; font-weight: 550; box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.8); }
         #toast.show { display: block; }
         #toast.err { border-color: rgba(255, 79, 94, 0.6); color: #FFB3B9; }
+            /* ═══ Header layout (last so it wins) ═══
+           Row 1: avatar, a wide name box (name, verified, LIVE), preview and settings buttons.
+           Row 2: game and title (or followers when offline), then compact viewers and uptime. */
+        #hdr { height: auto; flex-wrap: wrap; row-gap: 6px; column-gap: 8px; padding: 8px 10px 4px; }
+        #meta { order: 1; flex: 1 1 50%; height: 50px; justify-content: center; }
+        #avatar { order: 0; }
+        #eyebtn, .vr, #modbtn, #qbtn { order: 2; }
+        #l2 { order: 3; flex: 1 1 40%; min-width: 0; margin: 0; height: 36px; line-height: 36px; padding: 0 14px; border-radius: 12px; font-size: 13.5px; }
+        #stats { order: 4; height: 36px; gap: 6px; align-self: center; }
+        #stats div { flex-direction: row; align-items: center; gap: 7px; height: 36px; padding: 0 6px 0 11px; border-radius: 12px; }
+        #stats small { font-size: 9px; }
+        #stats b { margin: 0; }
+        #chname { font-size: 19px; }
     </style>
 </head>
 <body class="no-ts">
@@ -516,7 +529,6 @@
         <img id="avatar" alt="">
         <div id="meta" class="tile">
             <div id="l1"><span id="chname">XE Chat</span><svg id="verified" class="hidden"><use href="#v-check"/></svg><span id="livetag">LIVE</span><span id="modes"></span></div>
-            <div id="l2"><span id="game"></span><span id="gdot">&middot;</span><span id="stitle"></span></div>
         </div>
         <div id="stats">
             <div><small>Viewers</small><b id="s-viewers">–</b></div>
@@ -527,6 +539,7 @@
         <div class="vr"></div>
         <button id="modbtn" class="ib" aria-label="Moderation"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-3 8.2-7 10-4-1.8-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></button>
         <button id="qbtn" class="ib" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+        <div id="l2" class="tile"><span id="game"></span><span id="gdot">&middot;</span><span id="stitle"></span></div>
     </header>
 
     <div id="icue-note">Preview only, it won’t look right here. Adjust XE Chat with the settings button on the widget on your Xeneon Edge.</div>
