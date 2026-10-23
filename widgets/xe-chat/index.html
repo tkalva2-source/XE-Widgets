@@ -517,13 +517,15 @@
            Row 2: a full-width box with the game and title (or followers when offline). */
         /* divider between the stream info and chat: a plain border (a gradient background here set off
            iCUE's redraw bug on the Edge, leaving ghost copies of chat lines) */
-        #hdr { height: auto; flex-wrap: wrap; row-gap: 6px; padding: 8px 10px 9px; margin: 0 12px 4px; border-bottom: 2px solid var(--accent-line); }
-        #meta { height: 54px; justify-content: center; flex: 1 1 0; min-width: 0; }   /* fills the row up to the stats: no gap */
+        #hdr { height: auto; flex-wrap: wrap; row-gap: 4px; padding: 6px 8px 6px; margin: 0 12px 2px; border-bottom: 2px solid var(--accent-line); }
+        #meta { height: 46px; justify-content: center; flex: 1 1 0; min-width: 0; }   /* fills the row up to the stats: no gap */
         /* the preview and settings buttons move down beside the title, leaving the top row to the name and stats */
-        #eyebtn, .vr, #modbtn, #qbtn { order: 11; height: 36px; width: 36px; }
+        #eyebtn, .vr, #modbtn, #qbtn { order: 11; height: 30px; width: 32px; }
         .vr { display: none; }
-        #stats { height: 54px; }
-        #l2 { order: 10; flex: 1 1 calc(100% - 150px); margin: 0; height: 32px; line-height: 32px; padding: 0 14px; border-radius: 12px; font-size: 13.5px; }
+        #stats { height: 46px; }
+        #stats b { margin-top: 1px; padding-top: 1px; padding-bottom: 1px; }
+        #avatar { width: 42px; height: 42px; }
+        #l2 { order: 10; flex: 1 1 calc(100% - 150px); margin: 0; height: 28px; line-height: 28px; padding: 0 14px; border-radius: 12px; font-size: 13.5px; }
     </style>
 </head>
 <body class="no-ts">
