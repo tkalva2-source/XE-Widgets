@@ -516,8 +516,7 @@
            Row 1: avatar, name box (name, verified, LIVE), viewers, uptime, buttons, as before.
            Row 2: a full-width box with the game and title (or followers when offline). */
         #hdr { height: auto; flex-wrap: wrap; row-gap: 6px; padding: 8px 10px 4px; }
-        #meta { height: 54px; justify-content: center; flex: 0 1 auto; }   /* hugs the name, shrinks only when it must */
-        #stats { margin-left: auto; }   /* viewers and uptime sit on the right of the top row */
+        #meta { height: 54px; justify-content: center; flex: 1 1 0; min-width: 0; }   /* fills the row up to the stats: no gap */
         /* the preview and settings buttons move down beside the title, leaving the top row to the name and stats */
         #eyebtn, .vr, #modbtn, #qbtn { order: 11; height: 36px; width: 36px; }
         .vr { display: none; }
@@ -700,11 +699,6 @@
             var n = $('chname'), row = $('l1');
             function over() { return n.scrollWidth > n.clientWidth + 1 || row.scrollWidth > row.clientWidth + 1; }
             function shrink(min) { var size = parseFloat(getComputedStyle(n).fontSize); while (over() && size > min) { size -= 1; n.style.fontSize = size + 'px'; } }
-            // The name box hugs the name but may only use the room the other top-row items leave,
-            // so it gives way (instead of pushing the buttons onto a new line).
-            var hdr = $('hdr'), hcs = getComputedStyle(hdr), gap = parseFloat(hcs.columnGap) || 8, used = 0, items = 0;
-            ['avatar', 'stats'].forEach(function (id) { var e = $(id); if (e.offsetWidth) { used += e.offsetWidth; items++; } });   // the top row's other items
-            $('meta').style.maxWidth = Math.max(60, hdr.clientWidth - parseFloat(hcs.paddingLeft) - parseFloat(hcs.paddingRight) - used - gap * items - 1) + 'px';
             n.style.fontSize = ''; body.classList.remove('long-name');
             shrink(15); if (!over()) return;
             body.classList.add('long-name'); n.style.fontSize = ''; shrink(12);
