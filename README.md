@@ -116,6 +116,7 @@ By default the visualizer follows SteelSeries Sonar's *Media* and *Aux* channels
 - **Chat says it's connecting / nothing loads** — make sure the server is running (tray icon). If not, run `XE-Widgets-Server.exe` again.
 - **Widgets don't show up in iCUE** — restart iCUE after adding them.
 - **Server port** — both widgets use port `16329`. If you change it, change it in both widgets' settings.
+- If there is an error with the preview try switching to another stream and back
 
 ## Build it yourself
 
