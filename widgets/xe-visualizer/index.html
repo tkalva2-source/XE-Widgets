@@ -13,7 +13,7 @@
 
     <!-- Visualizer -->
     <meta name="x-icue-property" content="vizStyle" data-label="tr('Style')" data-type="combobox"
-        data-values="[{'key':'bars','value':tr('Bars')},{'key':'led','value':tr('LED Meter')},{'key':'wave','value':tr('Wave')},{'key':'radial','value':tr('Radial')}]"
+        data-values="[{'key':'bars','value':tr('Bars')},{'key':'led','value':tr('LED Meter')},{'key':'dots','value':tr('Dots')},{'key':'wave','value':tr('Wave')},{'key':'radial','value':tr('Radial')}]"
         data-default="'bars'">
     <meta name="x-icue-property" content="layout" data-label="tr('Layout')" data-type="combobox"
         data-values="[{'key':'split','value':tr('Side by Side')},{'key':'overlay','value':tr('Visualizer Behind Info')},{'key':'viz','value':tr('Visualizer Only')},{'key':'info','value':tr('Now Playing Only')}]"
@@ -33,6 +33,8 @@
     <meta name="x-icue-property" content="roundBars" data-label="tr('Rounded Bars')" data-type="switch" data-default="true">
     <meta name="x-icue-property" content="peakCaps" data-label="tr('Peak Caps')" data-type="switch" data-default="true">
     <meta name="x-icue-property" content="glow" data-label="tr('Glow')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="reflect" data-label="tr('Reflection')" data-type="switch" data-default="true">
+    <meta name="x-icue-property" content="bassPulse" data-label="tr('Bass Pulse')" data-type="switch" data-default="true">
 
     <!-- Now playing -->
     <meta name="x-icue-property" content="showControls" data-label="tr('Playback Controls')" data-type="switch" data-default="true">
@@ -65,7 +67,7 @@
 
     <script type="application/json" id="x-icue-groups">
     [
-        { "title": "tr('Visualizer')", "properties": ["vizStyle", "layout", "perfMode", "barCount", "barHeight", "sensitivity", "smoothing", "mirror", "roundBars", "peakCaps", "glow"] },
+        { "title": "tr('Visualizer')", "properties": ["vizStyle", "layout", "perfMode", "barCount", "barHeight", "sensitivity", "smoothing", "mirror", "roundBars", "peakCaps", "glow", "reflect", "bassPulse"] },
         { "title": "tr('Now Playing')", "properties": ["showControls", "showProgress", "marquee", "textScale", "audioSource", "demoMode", "serverPort"] },
         { "title": "tr('Widget Personalization')", "properties": ["theme", "colorMode", "accentColor", "albumAccent", "textColor", "backgroundColor", "transparency", "artBackdrop", "backgroundMedia"] }
     ]
@@ -325,7 +327,7 @@
         var S = {
             vizStyle: 'bars', layout: 'split', perfMode: 'balanced',
             barCount: 48, barHeight: 70, sensitivity: 50, smoothing: 40, audioSource: 'media+aux',
-            mirror: false, roundBars: true, peakCaps: true, glow: true,
+            mirror: false, roundBars: true, peakCaps: true, glow: true, reflect: true, bassPulse: true,
             showControls: true, showProgress: true, marquee: true, textScale: 100,
             demoMode: false, serverPort: '16329',
             theme: 'custom', colorMode: 'gradient', accentColor: '#1DB954', albumAccent: false,
@@ -342,6 +344,7 @@
             mono:      { accent: '#FFFFFF', text: '#F0F0F0', bg: '#000000', pal: ['#FFFFFF', '#B8B8B8', '#707070'] }
         };
 
+        var STYLES = ['bars', 'led', 'dots', 'wave', 'radial'];
         function oneOf(v, list, d) { return list.indexOf(v) >= 0 ? v : d; }
         function numIn(v, lo, hi, d) { var n = Number(v); return v === '' || v === null || !isFinite(n) ? d : Math.max(lo, Math.min(hi, n)); }
         function bool(v) { return v === true || v === 'true' || v === 1; }
@@ -353,7 +356,10 @@
 
         function readSettings() {
             // iCUE exposes each property as a global of the same name.
-            if (typeof vizStyle !== 'undefined') S.vizStyle = oneOf(vizStyle, ['bars', 'led', 'wave', 'radial'], 'bars');
+            if (typeof vizStyle !== 'undefined') S.vizStyle = oneOf(vizStyle, STYLES, 'bars');
+            // A style picked by tapping the widget sticks until the Style setting in iCUE is changed.
+            S.icueStyle = S.vizStyle;
+            try { var o = JSON.parse(localStorage.getItem('xev.style') || 'null'); if (o && o.base === S.vizStyle && STYLES.indexOf(o.style) >= 0) S.vizStyle = o.style; } catch (e) {}
             if (typeof layout !== 'undefined') S.layout = oneOf(layout, ['split', 'overlay', 'viz', 'info'], 'split');
             if (typeof perfMode !== 'undefined') S.perfMode = oneOf(perfMode, ['eco', 'balanced', 'smooth'], 'balanced');
             if (typeof barCount !== 'undefined') S.barCount = Math.round(numIn(barCount, 8, 96, 48));
@@ -365,6 +371,8 @@
             if (typeof roundBars !== 'undefined') S.roundBars = bool(roundBars);
             if (typeof peakCaps !== 'undefined') S.peakCaps = bool(peakCaps);
             if (typeof glow !== 'undefined') S.glow = bool(glow);
+            if (typeof reflect !== 'undefined') S.reflect = bool(reflect);
+            if (typeof bassPulse !== 'undefined') S.bassPulse = bool(bassPulse);
             if (typeof showControls !== 'undefined') S.showControls = bool(showControls);
             if (typeof showProgress !== 'undefined') S.showProgress = bool(showProgress);
             if (typeof marquee !== 'undefined') S.marquee = bool(marquee);
@@ -488,10 +496,11 @@
         }
 
         // Moves displayed bars toward the targets; returns true while anything is still visible.
+        var bassAvg = 0, pulse = 0;
         function stepBars(dt) {
             var n = bars.length, gain = Math.pow(S.sensitivity / 50, 0.8), top = S.barHeight / 100;
             var k = dt * 60;
-            var rise = 1 - Math.pow(0.25, k);
+            var rise = 1 - Math.pow(0.5, k);   // eased rise: snapping straight to each new level looked like flashing
             var fall = 1 - Math.pow(1 - (1 - S.smoothing / 100 * 0.92) * 0.5, k);
             var stale = now() - lastBandsAt > 1500;   // server stopped sending: let everything fall
             var alive = false;
@@ -508,6 +517,14 @@
                 else peaks[i] = Math.max(v, peaks[i] - 0.9 * dt);
                 if (v > 0 || peaks[i] > 0.003) alive = true;
             }
+            // Bass pulse: a hit is the low end jumping clearly above its recent average.
+            var bass = 0, nb = Math.max(1, Math.round(n * 0.12));
+            for (i = 0; i < nb; i++) bass += bars[i];
+            bass /= nb;
+            bassAvg += (bass - bassAvg) * Math.min(1, dt * 2.5);
+            if (!stale && bass > 0.18 && bass > bassAvg * 1.25) pulse = Math.max(pulse, Math.min(1, (bass - bassAvg) * 4));
+            pulse = Math.max(0, pulse - dt * 2.2);
+            if (pulse > 0.01) alive = true;
             return alive;
         }
 
@@ -553,43 +570,57 @@
             else ctx.rect(x, y, w, h);
         }
 
+        // Reflection: draw the same shapes again, flipped under the baseline and faded.
+        function reflected(base, fn) {
+            ctx.save(); ctx.globalAlpha = 0.22; ctx.transform(1, 0, 0, -0.3, 0, base * 1.3); fn(); ctx.restore();
+        }
+        function barGeom() {   // shared geometry for the bar-like styles
+            var n = bars.length, gap = Math.max(1, Math.round(W * 0.004)), mir = S.mirror, refl = S.reflect && !mir;
+            var base = refl ? H * 0.8 : H;
+            return { n: n, gap: gap, bw: (W - gap * (n - 1)) / n, mir: mir, refl: refl, base: base, half: mir ? H / 2 : base };
+        }
+
         function drawBars() {
-            var n = bars.length, gap = Math.max(1, Math.round(W * 0.004));
-            var bw = (W - gap * (n - 1)) / n, mir = S.mirror;
-            var half = mir ? H / 2 : H, r = S.roundBars ? bw / 2 : 0;
-            var capH = Math.max(2, Math.round(H * 0.014)), minH = Math.max(2, r ? bw * 0.5 : 2);
-            var i, x, h;
-            ctx.beginPath();
-            for (i = 0; i < n; i++) {
-                x = i * (bw + gap); h = Math.max(minH, bars[i] * half * 0.94);
-                if (mir) rr(x, half - h, bw, h * 2, r); else rr(x, H - h, bw, h + r, r);
+            var L = barGeom(), n = L.n, bw = L.bw, gap = L.gap, half = L.half, base = L.base, mir = L.mir;
+            var r = S.roundBars ? bw / 2 : 0, capH = Math.max(2, Math.round(H * 0.014)), minH = Math.max(2, r ? bw * 0.5 : 2);
+            function body() {
+                ctx.beginPath();
+                for (var i = 0; i < n; i++) {
+                    var x = i * (bw + gap), h = Math.max(minH, bars[i] * half * 0.94);
+                    if (mir) rr(x, half - h, bw, h * 2, r); else rr(x, base - h, bw, L.refl ? h : h + r, r);
+                }
+                ctx.fillStyle = paint; ctx.fill();
             }
-            ctx.fillStyle = paint; ctx.fill();
+            body();
+            if (L.refl) reflected(base, body);
             if (!S.peakCaps) return;
             ctx.beginPath();
-            for (i = 0; i < n; i++) {
+            for (var i = 0; i < n; i++) {
                 if (peaks[i] < 0.02) continue;
-                x = i * (bw + gap); h = peaks[i] * half * 0.94 + capH * 1.6;
+                var x = i * (bw + gap), h = peaks[i] * half * 0.94 + capH * 1.6;
                 rr(x, half - h, bw, capH, r ? capH / 2 : 0);
                 if (mir) rr(x, half + h - capH, bw, capH, r ? capH / 2 : 0);
             }
-            if (S.glow) { ctx.globalAlpha = 0.22; ctx.lineWidth = capH; ctx.strokeStyle = solid; ctx.stroke(); ctx.globalAlpha = 1; }
+            if (S.glow) { ctx.globalAlpha = 0.22 + pulse * 0.3; ctx.lineWidth = capH; ctx.strokeStyle = solid; ctx.stroke(); ctx.globalAlpha = 1; }
             ctx.fillStyle = solid; ctx.fill();
         }
 
         function drawLed() {
-            var n = bars.length, gap = Math.max(1, Math.round(W * 0.004));
-            var bw = (W - gap * (n - 1)) / n, mir = S.mirror, half = mir ? H / 2 : H;
+            var L = barGeom(), n = L.n, bw = L.bw, gap = L.gap, half = L.half, base = L.base, mir = L.mir;
             var segH = Math.max(3, Math.min(bw * 0.55, H / 22)), sg = Math.max(1, segH * 0.4), step = segH + sg;
             var segs = Math.max(1, Math.floor(half / step)), r = S.roundBars ? segH * 0.35 : 0;
             function seg(x, s) {
                 if (mir) { rr(x, half - (s + 1) * step + sg / 2, bw, segH, r); rr(x, half + s * step + sg / 2, bw, segH, r); }
-                else rr(x, H - (s + 1) * step + sg, bw, segH, r);
+                else rr(x, base - (s + 1) * step + sg, bw, segH, r);
             }
-            var i, s, lit;
-            ctx.beginPath();
-            for (i = 0; i < n; i++) for (s = 0, lit = Math.round(bars[i] * segs); s < lit; s++) seg(i * (bw + gap), s);
-            ctx.fillStyle = paint; ctx.fill();
+            function lit() {
+                ctx.beginPath();
+                for (var i = 0; i < n; i++) for (var s = 0, k = Math.round(bars[i] * segs); s < k; s++) seg(i * (bw + gap), s);
+                ctx.fillStyle = paint; ctx.fill();
+            }
+            lit();
+            if (L.refl) reflected(base, lit);
+            var i, s;
             ctx.beginPath();
             for (i = 0; i < n; i++) for (s = Math.round(bars[i] * segs); s < segs; s++) seg(i * (bw + gap), s);
             ctx.globalAlpha = 0.07; ctx.fillStyle = solid; ctx.fill(); ctx.globalAlpha = 1;
@@ -599,8 +630,44 @@
                 var pk = Math.round(peaks[i] * segs);
                 if (pk > Math.round(bars[i] * segs)) seg(i * (bw + gap), pk - 1);
             }
-            if (S.glow) { ctx.globalAlpha = 0.3; ctx.lineWidth = segH; ctx.strokeStyle = solid; ctx.stroke(); ctx.globalAlpha = 1; }
+            if (S.glow) { ctx.globalAlpha = 0.3 + pulse * 0.3; ctx.lineWidth = segH; ctx.strokeStyle = solid; ctx.stroke(); ctx.globalAlpha = 1; }
             ctx.fillStyle = solid; ctx.fill();
+        }
+
+        // Dots: each bar is a column of round dots, with the peak as a brighter dot.
+        function drawDots() {
+            var L = barGeom(), n = L.n, bw = L.bw, gap = L.gap, half = L.half, base = L.base, mir = L.mir;
+            var d = Math.max(3, Math.min(bw, H / 16)), rad = d / 2, step = d * 1.3, segs = Math.max(1, Math.floor(half / step));
+            function dot(cx, s) {
+                var cy = mir ? half - s * step - rad : base - s * step - rad;
+                ctx.moveTo(cx + rad, cy); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+                if (mir) { var cy2 = half + s * step + rad; ctx.moveTo(cx + rad, cy2); ctx.arc(cx, cy2, rad, 0, Math.PI * 2); }
+            }
+            function lit() {
+                ctx.beginPath();
+                for (var i = 0; i < n; i++) for (var s = 0, k = Math.max(1, Math.round(bars[i] * segs)); s < k; s++) dot(i * (bw + gap) + bw / 2, s);
+                ctx.fillStyle = paint; ctx.fill();
+            }
+            lit();
+            if (L.refl) reflected(base, lit);
+            if (!S.peakCaps) return;
+            ctx.beginPath();
+            for (var i = 0; i < n; i++) {
+                var pk = Math.round(peaks[i] * segs);
+                if (pk > Math.round(bars[i] * segs)) dot(i * (bw + gap) + bw / 2, pk - 1);
+            }
+            if (S.glow) { ctx.globalAlpha = 0.3 + pulse * 0.3; ctx.lineWidth = d * 0.6; ctx.strokeStyle = solid; ctx.stroke(); ctx.globalAlpha = 1; }
+            ctx.fillStyle = solid; ctx.fill();
+        }
+
+        // Bass pulse: a soft glow in the palette colours that swells from the bottom on bass hits.
+        function drawPulse() {
+            if (!S.bassPulse || pulse < 0.02) return;
+            var pal = palette(), c = pal[Math.floor(pal.length / 2)] || accentRGB;
+            var cy = S.mirror || S.vizStyle === 'radial' ? H / 2 : (S.reflect ? H * 0.8 : H);
+            var g = ctx.createRadialGradient(W / 2, cy, 0, W / 2, cy, Math.max(W, H) * 0.65);
+            g.addColorStop(0, css(c, 0.32 * pulse)); g.addColorStop(1, css(c, 0));
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
         }
 
         function wavePath(base, dir, amp, first) {
@@ -666,7 +733,9 @@
                     if (texDirty) buildPaint();
                     ctx.clearRect(0, 0, W, H);
                     if (alive || demo) {
+                        drawPulse();
                         if (S.vizStyle === 'led') drawLed();
+                        else if (S.vizStyle === 'dots') drawDots();
                         else if (S.vizStyle === 'wave') drawWave();
                         else if (S.vizStyle === 'radial') drawRadial(dt);
                         else drawBars();
@@ -679,6 +748,13 @@
                 raf = requestAnimationFrame(frame);
             }
         }
+
+        cv.addEventListener('click', function () {
+            var next = STYLES[(STYLES.indexOf(S.vizStyle) + 1) % STYLES.length];
+            S.vizStyle = next; texDirty = true; spin = 0;
+            try { localStorage.setItem('xev.style', JSON.stringify({ base: S.icueStyle, style: next })); } catch (e) {}
+            wake();
+        });
 
         function sizeCanvas() {
             var r = cv.getBoundingClientRect();

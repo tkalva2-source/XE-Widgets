@@ -44,7 +44,7 @@
     var f = document.getElementById('f');
     fetch('../widgets/xe-visualizer/index.html').then(function (r) { return r.text(); }).then(function (html) {
         var pre = '<base href="../widgets/xe-visualizer/"><script>let icueEvents = null; let iCUE_initialized = false;' +
-            'var accentColor = "#9146FF", transparency = 85;(' + prelude.toString() + ')();<\/script>';
+            'var accentColor = "#9146FF", transparency = 85, vizStyle = ' + JSON.stringify(new URLSearchParams(location.search).get('style') || 'bars') + ';(' + prelude.toString() + ')();<\/script>';
         f.srcdoc = html.replace('<head>', '<head>' + pre);
         f.onload = function () {
             setTimeout(function () { f.contentWindow.eval('iCUE_initialized = true; icueEvents && icueEvents.onICUEInitialized && icueEvents.onICUEInitialized()'); }, 50);

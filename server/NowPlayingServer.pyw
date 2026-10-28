@@ -40,7 +40,7 @@ BANDS = 96
 F_LO, F_HI = 30.0, 16000.0
 BASS_SPLIT_HZ = 250.0   # below this, use the high-resolution bass FFT
 DB_FLOOR = -48.0
-PEAK_WINDOW_SECS = 10.0
+PEAK_HALF_LIFE_SECS = 3.0   # how quickly the loudness reference eases down after loud parts
 
 
 def _detect_image_type(data):
@@ -52,20 +52,21 @@ def _detect_image_type(data):
 
 
 class _RollingPeak:
-    """Max over the last PEAK_WINDOW_SECS, so levels adapt slowly to volume."""
+    """Loudness reference: jumps up at once for louder audio, then eases down smoothly.
+    (A hard 10 s max window made every bar jump at once when a loud hit dropped out of it.)"""
 
     def __init__(self):
-        self._hist = collections.deque()
+        self._p = 0.0
+        self._t = time.monotonic()
 
     def update(self, value):
         now = time.monotonic()
-        self._hist.append((now, value))
-        while self._hist and self._hist[0][0] < now - PEAK_WINDOW_SECS:
-            self._hist.popleft()
-        return max(v for _, v in self._hist)
+        dt, self._t = now - self._t, now
+        self._p = max(value, self._p * 0.5 ** (dt / PEAK_HALF_LIFE_SECS))
+        return self._p
 
     def reset(self):
-        self._hist.clear()
+        self._p = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +256,7 @@ class AudioCapture:
             except Exception:
                 break
             if samples is None:
-                if time.monotonic() - idle_since > 0.15 and any(self._bands):
+                if time.monotonic() - idle_since > 0.6 and any(self._bands):
                     self._publish(bytes(BANDS))  # went silent: drop the bars now
                 time.sleep(0.004)
                 continue
@@ -278,7 +279,7 @@ class AudioCapture:
             # the fast main FFT's low end compares to its recent average.
             low_now = float(spec[:low_bin].mean())
             self._low_smoothed = self._low_smoothed * 0.93 + low_now * 0.07
-            env = min(2.5, low_now / self._low_smoothed) if self._low_smoothed > 1e-4 else 1.0
+            env = min(1.6, low_now / self._low_smoothed) ** 0.7 if self._low_smoothed > 1e-4 else 1.0
 
             for i, (use_bass, lo, hi, center) in enumerate(plan):
                 src = bass_spec if use_bass else spec
