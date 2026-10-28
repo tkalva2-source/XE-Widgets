@@ -13,7 +13,7 @@ A vibe-coded fork by **Tkalva**: XE Chat started as a rework of the Lumo chat wi
 | Widget | What it does |
 |---|---|
 | **XE Chat** | Twitch chat with 7TV / BTTV / FFZ emotes, 7TV name paints and badges, stream info, chatting and moderation once you sign in, your followed channels (live first), and a live stream preview with sound and a theater view. |
-| **XE Visualizer** | Audio visualizer with the current song or video, album art, playback controls and themes. Works with Spotify, YouTube, Twitch and anything else Windows shows as "now playing". |
+| **XE Visualizer** | Audio visualizer with the current song or video, album art, playback controls, themes and a bass pulse glow. YouTube videos get their HD thumbnail with a channel card (avatar, subscribers, likes, views); any other website shows its own name and icon. Works with Spotify, YouTube, Twitch and anything else Windows shows as "now playing". |
 
 ## Screenshots
 
@@ -57,6 +57,8 @@ While running it:
 - **only listens on your own PC** (`localhost:16329`), nothing is reachable from the network,
 - connects to Twitch, 7TV, BetterTTV, FrankerFaceZ and ivr.fi for chat, emotes, badges and stream info,
 - reads the "now playing" info Windows already shows (song, video, thumbnail) and captures audio for the visualizer,
+- for YouTube videos, looks the video up on youtube.com by its title to get the HD thumbnail, channel avatar, subscriber, like and view counts,
+- to show which website is playing, reads your browsers' history and icon cache **on your PC, read-only** (Chrome, Edge, Comet, Opera, Brave, Vivaldi, Firefox). It only looks for the page whose title matches what's playing; nothing from your history is stored or sent anywhere, and private/incognito windows are never visible to it,
 - decodes the stream preview when you turn it on.
 
 It collects nothing and sends nothing anywhere else. **Uninstall:** right-click the tray icon → *Uninstall…* (removes the program and its startup entry), then remove the widgets in iCUE.

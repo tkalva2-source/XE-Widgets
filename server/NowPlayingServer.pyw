@@ -25,6 +25,7 @@ import base64
 import collections
 import json
 import logging
+import os
 import re
 import sys
 import threading
@@ -302,6 +303,155 @@ class AudioCapture:
 # Track info + playback control (Windows SMTC)
 # ---------------------------------------------------------------------------
 
+# ── Website lookup (browser history) ──────────────────────────────────────────
+# Windows only says "a browser is playing". To show which website, find the page in that
+# browser's own history by its title, and take the site's icon from the browser's icon cache.
+_LOCAL, _ROAMING = os.environ.get("LOCALAPPDATA", ""), os.environ.get("APPDATA", "")
+# app-id fragment -> (kind, profile roots). Checked in order, so "comet" wins over "chrome".
+HISTORY_DIRS = [
+    ("comet", "chromium", [_LOCAL + "/Perplexity/Comet/User Data"]),
+    ("msedge", "chromium", [_LOCAL + "/Microsoft/Edge/User Data"]),
+    ("brave", "chromium", [_LOCAL + "/BraveSoftware/Brave-Browser/User Data"]),
+    ("vivaldi", "chromium", [_LOCAL + "/Vivaldi/User Data"]),
+    ("opera", "chromium", [_ROAMING + "/Opera Software"]),   # Opera, Opera GX, Opera Neon
+    ("chrome", "chromium", [_LOCAL + "/Google/Chrome/User Data"]),
+    ("firefox", "firefox", [_ROAMING + "/Mozilla/Firefox/Profiles"]),
+    ("308046b0af4a39cb", "firefox", [_ROAMING + "/Mozilla/Firefox/Profiles"]),
+]
+SITE_PLATFORMS = {"youtube.com": "youtube", "m.youtube.com": "youtube", "music.youtube.com": "youtube",
+                  "youtu.be": "youtube", "twitch.tv": "twitch", "open.spotify.com": "spotify"}
+PLACEHOLDER_TITLES = {"a site is playing media"}
+_CHROME_EPOCH_US =11644473600 * 1_000_000   # Chromium counts from 1601, Firefox from 1970
+
+
+def _open_db(path, kind):
+    """Read-only view of a browser database that the browser may have open."""
+    import sqlite3
+    uri = "file:///" + path.replace("\\", "/")
+    if kind == "chromium":   # Chromium locks its databases; immutable reads still work
+        return sqlite3.connect(uri + "?immutable=1", uri=True)
+    try:   # Firefox keeps recent writes in a -wal file, which a normal read-only open includes
+        c = sqlite3.connect(uri + "?mode=ro", uri=True, timeout=0.3)
+        c.execute("select 1 from sqlite_master limit 1")
+        return c
+    except sqlite3.Error:   # locked by Firefox: read a copy instead
+        import shutil
+        import tempfile
+        d = os.path.join(tempfile.gettempdir(), "xe-nowplaying")
+        os.makedirs(d, exist_ok=True)
+        name = os.path.basename(path)
+        for ext in ("", "-wal"):
+            dst = os.path.join(d, name + ext)
+            if os.path.exists(path + ext):
+                shutil.copyfile(path + ext, dst)
+            elif os.path.exists(dst):
+                os.remove(dst)
+        return sqlite3.connect(os.path.join(d, name))
+
+
+def find_site(app_id, title):
+    """Newest history entry whose page title contains the playing title, from the browser that's
+    playing (every known browser if the app isn't recognised). Returns {host, name, icon} or None."""
+    import glob
+    from urllib.parse import urlsplit
+    a = app_id.lower()
+    dirs = next(([(k, r) for r in roots] for frag, k, roots in HISTORY_DIRS if frag in a), None) \
+        or [(k, r) for _, k, roots in HISTORY_DIRS for r in roots]
+    like = "%" + (title or "").replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    best = None   # (unix microseconds, url, page title, kind, profile dir)
+    for kind, root in dict.fromkeys(dirs):
+        name = "History" if kind == "chromium" else "places.sqlite"
+        for db in glob.glob(f"{root}/*/{name}") + glob.glob(f"{root}/*/*/{name}"):
+            try:
+                c = _open_db(db, kind)
+                if kind == "chromium":
+                    row = c.execute("select last_visit_time - ?, url, title from urls where url like 'http%' and title like ? escape '\\' "
+                                    "order by last_visit_time desc limit 1", (_CHROME_EPOCH_US, like)).fetchone()
+                else:
+                    row = c.execute("select last_visit_date, url, title from moz_places where url like 'http%' and title like ? escape '\\' "
+                                    "order by last_visit_date desc limit 1", (like,)).fetchone()
+                c.close()
+            except Exception as e:
+                log.debug(f"history read failed for {db}: {e}")
+                continue
+            if row and row[0] and (not best or row[0] > best[0]):
+                best = (row[0], row[1], row[2] or "", kind, os.path.dirname(db))
+    if not best:
+        return None
+    visited, url, page_title, kind, prof = best
+    parts = urlsplit(url)
+    host = (parts.hostname or "").removeprefix("www.")
+    if not host or parts.scheme not in ("http", "https"):
+        return None
+    # site name: the end of the page title ("Video - YouTube"), else the domain
+    name = host
+    page = re.sub(r"^\(\d+\)\s*", "", page_title)   # drop "(3) " notification counts
+    for sep in (" - ", " | ", " – ", " — ", " • ", " · "):
+        head, _, tail = page.rpartition(sep)
+        if head and title in head and 0 < len(tail.strip()) <= 30:
+            name, page = tail.strip(), head.strip()
+            break
+    return {"host": host, "name": name, "page": page or name, "visited": visited / 1e6, "icon": _site_icon(kind, prof, url, f"{parts.scheme}://{parts.netloc}/")}
+
+
+def _site_icon(kind, prof, url, origin):
+    """The site's favicon from the browser's icon cache, as a small data URL ("" if none)."""
+    import io
+    from PIL import Image
+    try:
+        if kind == "chromium":
+            c = _open_db(os.path.join(prof, "Favicons"), kind)
+            q = ("select b.image_data from icon_mapping m join favicon_bitmaps b on b.icon_id = m.icon_id "
+                 "where m.page_url {} ? order by b.width desc limit 1")
+        else:
+            c = _open_db(os.path.join(prof, "favicons.sqlite"), kind)
+            q = ("select i.data from moz_pages_w_icons p join moz_icons_to_pages ip on ip.page_id = p.id "
+                 "join moz_icons i on i.id = ip.icon_id where p.page_url {} ? order by i.width desc limit 1")
+        row = c.execute(q.format("="), (url,)).fetchone() or c.execute(q.format("like"), (origin + "%",)).fetchone()
+        c.close()
+        if not row or not row[0]:
+            return ""
+        data = bytes(row[0])
+        if data.lstrip()[:1] == b"<":   # SVG icon: the widget can draw it as is
+            return "data:image/svg+xml;base64," + base64.b64encode(data).decode()
+        img = Image.open(io.BytesIO(data)).convert("RGBA")
+        if max(img.size) > 256:
+            img = img.resize((256, 256), Image.LANCZOS)
+        b = io.BytesIO()
+        img.save(b, "PNG")
+        return "data:image/png;base64," + base64.b64encode(b.getvalue()).decode()
+    except Exception as e:
+        log.debug(f"favicon read failed: {e}")
+        return ""
+
+
+def icon_art(icon):
+    """Square cover art made from a site icon: the icon centred on a dark tint of its own colour,
+    with a soft glow of itself behind it."""
+    import io
+    from PIL import Image, ImageFilter
+    if not icon.startswith("data:image/png"):
+        return icon   # SVG: draws sharp at any size as it is
+    try:
+        ic = Image.open(io.BytesIO(base64.b64decode(icon.split(",", 1)[1]))).convert("RGBA")
+        a = np.asarray(ic, dtype=np.float32)
+        w = a[..., 3:] / 255
+        colour = (a[..., :3] * w).sum((0, 1)) / max(float(w.sum()), 1.0)   # average of the visible pixels
+        size = 384
+        card = Image.new("RGBA", (size, size), tuple(int(c * 0.28) for c in colour) + (255,))
+        glow = ic.resize((size, size), Image.LANCZOS).filter(ImageFilter.GaussianBlur(40))
+        glow.putalpha(glow.getchannel("A").point(lambda v: v * 0.45))
+        card.alpha_composite(glow)
+        big = ic.resize((size * 2 // 5, size * 2 // 5), Image.LANCZOS)
+        card.alpha_composite(big, ((size - big.width) // 2, (size - big.height) // 2))
+        b = io.BytesIO()
+        card.convert("RGB").save(b, "JPEG", quality=90)
+        return "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
+    except Exception as e:
+        log.debug(f"icon art failed: {e}")
+        return ""
+
+
 class MediaInfo:
     def __init__(self):
         self._session = None
@@ -333,7 +483,7 @@ class MediaInfo:
             s = self._pick_session(manager)
             self._session = s
             if not s:
-                self.data.update(title="", artist="", album="", playing=False, pos=0.0, dur=0.0, live=False, platform="")
+                self.data.update(title="", artist="", album="", playing=False, pos=0.0, dur=0.0, live=False, platform="", site=None)
                 if self._last_title:
                     self._last_title = ""
                     self.art_url = ""
@@ -342,6 +492,8 @@ class MediaInfo:
             info = await asyncio.wait_for(s.try_get_media_properties_async(), 5.0)
             playing = s.get_playback_info().playback_status == self._Status.PLAYING
             title = info.title or ""
+            # Opera and others send a stand-in title and picture when the page gives no media details
+            generic = title.casefold() in PLACEHOLDER_TITLES
             pos = dur = 0.0
             live = False
             try:
@@ -357,19 +509,187 @@ class MediaInfo:
                 self._last_title = title
                 self.track_changed = True
                 self._art_retries = 6
-                self.art_url, self._art_aspect = await self._read_art(info.thumbnail)
+                self._hd_title = ""
+                self._site, self._site_tries, self._site_next, self._icon_art_src = None, 10, 0.0, ""
+                self._started = time.time()
+                self.art_url, self._art_aspect = ("", 0.0) if generic else await self._read_art(info.thumbnail)
                 self.art_version += 1
-            elif self._art_retries > 0:
+            elif self._art_retries > 0 and not generic:
                 self._art_retries -= 1
                 url, aspect = await self._read_art(info.thumbnail)
-                if url and url != self.art_url:
+                if url and url != self.art_url and self._hd_title != title and not self._icon_art_src:
                     self.art_url, self._art_aspect = url, aspect
                     self.art_version += 1
-            self.data.update(title=title, artist=info.artist or "", album=info.album_title or "",
-                             playing=playing, pos=round(pos, 2), dur=round(dur, 2), live=live,
-                             platform=self._platform(s.source_app_user_model_id, live, info.album_title or ""))
+            app_id = s.source_app_user_model_id or ""
+            # which website a browser is playing from (history is written a little late, so retry a while;
+            # with only a stand-in title, guess the newest page in that browser's history)
+            if title and self._site is None and self._site_tries > 0 \
+                    and time.monotonic() >= self._site_next and any(b in app_id.lower() for b in self.BROWSERS):
+                self._site_tries -= 1
+                self._site_next = time.monotonic() + 3
+                found = await asyncio.to_thread(find_site, app_id, "" if generic else title)
+                # A stand-in title can only be guessed from the newest page, so that page must have been
+                # opened around when the media started. Private windows keep no history: the newest page
+                # is then some older, unrelated one, and showing nothing beats showing the wrong site.
+                if found and generic and found["visited"] < self._started - 120:
+                    found = None
+                if found and self._last_title == title:
+                    self._site = found
+                    log.info(f"Playing on {found['host']}")
+            site = self._site
+            # websites other than the known services get their icon as the art: the pictures browsers
+            # pass on for them are often missing, stand-ins or unreadable
+            if site and site["icon"] and site["host"] not in SITE_PLATFORMS and self._icon_art_src != site["icon"]:
+                self._icon_art_src = site["icon"]
+                art = await asyncio.to_thread(icon_art, site["icon"])
+                if art:
+                    self.art_url, self._art_aspect = art, 1.0
+                    self.art_version += 1
+            platform = SITE_PLATFORMS.get(site["host"], "web") if site else \
+                self._platform(app_id, live, info.album_title or "")
+            # stand-in title: show only the guessed site's name. The newest page could be anything
+            # (a search, another tab), so its own title never goes on screen.
+            shown = (site["name"] if site else "Media playing") if generic else title
+            self.data.update(title=shown, artist=info.artist or "", album=info.album_title or "",
+                             playing=playing, pos=round(pos, 2), dur=round(dur, 2), live=live, platform=platform,
+                             site={"name": site["name"], "icon": site["icon"]} if site else None)
+            self.data["yt"] = self._yt_meta if self._hd_title == title else None
+            # YouTube: swap in the HD thumbnail whenever the low-res one is showing, including after
+            # switching back to the video's tab (looked-up videos come from the cache instantly).
+            if self.data["platform"] == "youtube" and title and self._hd_title != title and self._hd_tried != title                     and time.monotonic() >= self._hd_retry_at:
+                self._hd_tried = title
+                asyncio.ensure_future(self._youtube_hd_art(title, info.artist or ""))
         except Exception as e:
             log.debug(f"SMTC poll failed: {type(e).__name__}: {e}")
+
+    _site = None       # {"host", "name", "icon"} of the website playing, from browser history
+    _site_tries = 0
+    _site_next = 0.0
+    _started = 0.0     # when the current title first appeared
+    _icon_art_src = ""  # site icon the current icon art was made from
+    _hd_tried = ""     # last YouTube title we looked up an HD thumbnail for
+    _hd_title = ""     # title whose art is currently the HD thumbnail
+    _hd_cache = {}
+    _hd_retry_at = 0.0  # after a failed lookup, wait before trying again
+    _yt_meta = None    # channel name/avatar, views and age for the video whose HD art is showing
+
+    async def _youtube_hd_art(self, title, channel):
+        """Browsers hand Windows a tiny YouTube thumbnail. Look the video up by its exact title
+        (and channel) and use YouTube's own HD thumbnail instead, plus the channel avatar, views and
+        age for the video card. No exact match: keep what we have."""
+        key = (title, channel)
+        found = self._hd_cache.get(key)
+        if found is None:
+            found = await asyncio.to_thread(self._find_youtube_thumb, title, channel)
+            if not found:
+                # not cached, so switching back to the video later tries again (e.g. network was down)
+                if self._hd_tried == title:
+                    self._hd_tried = ""
+                    self._hd_retry_at = time.monotonic() + 30
+                return
+            if len(self._hd_cache) > 200:
+                self._hd_cache.clear()
+            self._hd_cache[key] = found
+        self._hd_tried = ""   # done: allowed to run again for this title if its art gets replaced later
+        url = found.get("art") if found else ""
+        if url and self._last_title == title:   # still the same video
+            self._yt_meta = {k: v for k, v in found.items() if k != "art"}
+            self.art_url, self._art_aspect, self._hd_title = url, 16 / 9, title
+            self.art_version += 1
+            log.info(f"HD thumbnail for {title!r}")
+
+    @staticmethod
+    def _find_youtube_thumb(title, channel):
+        import io
+        import json as _json
+        import re as _re
+        import urllib.parse
+        import urllib.request
+        from PIL import Image
+        hdrs = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept-Language": "en-US,en;q=0.8"}
+
+        def get(u):
+            with urllib.request.urlopen(urllib.request.Request(u, headers=hdrs), timeout=8) as r:
+                return r.read()
+
+        def norm(t):
+            return _re.sub(r"\s+", " ", t).strip().casefold()
+
+        try:
+            q = urllib.parse.quote_plus(f"{title} {channel}".strip())
+            page = get(f"https://www.youtube.com/results?search_query={q}").decode("utf-8", "replace")
+            m = _re.search(r"var ytInitialData = (\{.*?\});</script>", page)
+            if not m:
+                return ""
+            data = _json.loads(m.group(1))
+            found = []
+
+            def walk(o):
+                if isinstance(o, dict):
+                    v = o.get("videoRenderer")
+                    if isinstance(v, dict) and v.get("videoId"):
+                        t = "".join(r.get("text", "") for r in v.get("title", {}).get("runs", []))
+                        c = "".join(r.get("text", "") for r in v.get("ownerText", {}).get("runs", []))
+                        views = (v.get("shortViewCountText") or v.get("viewCountText") or {}).get("simpleText") \
+                            or "".join(r.get("text", "") for r in (v.get("shortViewCountText") or {}).get("runs", []))
+                        age = (v.get("publishedTimeText") or {}).get("simpleText", "")
+                        thumbs = (v.get("channelThumbnailSupportedRenderers", {}).get("channelThumbnailWithLinkRenderer", {})
+                                  .get("thumbnail", {}).get("thumbnails", []))
+                        owner = [(b.get("metadataBadgeRenderer") or {}).get("style", "") for b in v.get("ownerBadges", [])]
+                        found.append((v["videoId"], t, c, {
+                            "views": views or "", "age": age, "channel": c,
+                            "avatar": thumbs[-1]["url"] if thumbs else "",
+                            "verified": any("VERIFIED" in o or "ARTIST" in o for o in owner)}))
+                    for x in o.values():
+                        walk(x)
+                elif isinstance(o, list):
+                    for x in o:
+                        walk(x)
+            walk(data)
+            want = norm(title)
+            matches = [f for f in found if norm(f[1]) == want]
+            if channel:   # prefer the same channel when titles repeat
+                matches.sort(key=lambda f: norm(f[2]) != norm(channel))
+            if not matches:
+                return {}
+            vid, meta = matches[0][0], dict(matches[0][3])
+            try:   # subscriber and like counts are only on the watch page; the card works without them
+                w = get(f"https://www.youtube.com/watch?v={vid}").decode("utf-8", "replace")
+                subs = _re.search(r'"subscriberCountText":\{.*?"simpleText":"([^"]+)"', w)
+                likes = _re.search(r'"factoidRenderer":\{"value":\{"simpleText":"([^"]+)"\},"label":\{"simpleText":"Likes"', w)
+                meta["subs"] = subs.group(1).replace(" subscribers", " subs") if subs else ""
+                meta["likes"] = likes.group(1) if likes else ""
+            except Exception:
+                pass
+            if meta["avatar"]:   # small round channel picture, as a data URL (iCUE can't load remote images)
+                try:
+                    av = Image.open(io.BytesIO(get(meta["avatar"]))).convert("RGB").resize((88, 88), Image.LANCZOS)
+                    b = io.BytesIO()
+                    av.save(b, "JPEG", quality=85)
+                    meta["avatar"] = "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
+                except Exception:
+                    meta["avatar"] = ""
+            for name in ("maxresdefault", "sddefault", "hqdefault"):
+                try:
+                    img = Image.open(io.BytesIO(get(f"https://i.ytimg.com/vi/{vid}/{name}.jpg"))).convert("RGB")
+                except Exception:
+                    continue
+                w, h = img.size
+                if w < 300:
+                    continue   # YouTube's 120x90 "no thumbnail" placeholder
+                th = round(w * 9 / 16)
+                if h > th:   # sd/hq thumbnails are 4:3 with black bars: keep the 16:9 middle
+                    top = (h - th) // 2
+                    img = img.crop((0, top, w, top + th))
+                if img.width > 960:
+                    img = img.resize((960, 540), Image.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, "JPEG", quality=88)
+                meta["art"] = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+                return meta
+        except Exception as e:
+            log.debug(f"YouTube HD thumbnail lookup failed: {type(e).__name__}: {e}")
+        return {}
 
     def _pick_session(self, manager):
         """Prefer a session that is actually playing; Windows' "current" one may be paused."""
@@ -419,7 +739,7 @@ class MediaInfo:
         if self._art_aspect > 1.25:
             return "youtube"
         if 0.8 < self._art_aspect <= 1.25:
-            return "youtube" if album else "twitch"
+            return "youtube" if album else ("twitch" if live else "")   # a square picture alone isn't Twitch
         return "twitch" if live else ""
 
     async def _read_art(self, thumb):
