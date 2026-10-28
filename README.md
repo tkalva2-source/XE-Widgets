@@ -58,7 +58,7 @@ While running it:
 - connects to Twitch, 7TV, BetterTTV, FrankerFaceZ and ivr.fi for chat, emotes, badges and stream info,
 - reads the "now playing" info Windows already shows (song, video, thumbnail) and captures audio for the visualizer,
 - for YouTube videos, looks the video up on youtube.com by its title to get the HD thumbnail, channel avatar, subscriber, like and view counts,
-- to show which website is playing, reads your browsers' history and icon cache **on your PC, read-only** (Chrome, Edge, Comet, Opera, Brave, Vivaldi, Firefox). It only looks for the page whose title matches what's playing; nothing from your history is stored or sent anywhere, and private/incognito windows are never visible to it,
+- shows which website a video or song is playing on. Windows doesn't say which site a browser tab is, so the server finds the tab's page by its title in your browser's own local data (the same place the browser keeps its tab icons), entirely on your PC. It only matches the one title that's playing, never stores or uploads anything, and private windows are left alone,
 - decodes the stream preview when you turn it on.
 
 It collects nothing and sends nothing anywhere else. **Uninstall:** right-click the tray icon → *Uninstall…* (removes the program and its startup entry), then remove the widgets in iCUE.
