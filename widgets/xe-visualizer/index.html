@@ -928,13 +928,16 @@
             app.classList.add('has-art');
             var wide = artImg.naturalWidth > artImg.naturalHeight * 1.15;
             app.classList.toggle('art-wide', wide);
-            if (wide) {   // blurred once into a small canvas (no CSS filter: those upset iCUE's redraws)
-                var fx = artFill.getContext('2d'), iw = artImg.naturalWidth, ih = artImg.naturalHeight, N = 128;
-                var sc = N * 1.15 / Math.min(iw, ih);   // a little oversized so the blur has no faded edges
+            if (wide) {
+                // Soft background: shrink to 32px, then scale back up smoothly ourselves. No filters
+                // (CSS or canvas): they set off iCUE's redraw bug, which breaks other widgets' see-through.
+                var fx = artFill.getContext('2d'), iw = artImg.naturalWidth, ih = artImg.naturalHeight, N = 128, n = 32;
+                var tiny = document.createElement('canvas'); tiny.width = tiny.height = n;
+                var tx = tiny.getContext('2d'), sc = n / Math.min(iw, ih);
+                tx.imageSmoothingQuality = fx.imageSmoothingQuality = 'high';
+                tx.drawImage(artImg, (n - iw * sc) / 2, (n - ih * sc) / 2, iw * sc, ih * sc);
                 fx.clearRect(0, 0, N, N);
-                fx.filter = 'blur(7px)';
-                fx.drawImage(artImg, (N - iw * sc) / 2, (N - ih * sc) / 2, iw * sc, ih * sc);
-                fx.filter = 'none';
+                fx.drawImage(tiny, 0, 0, N, N);
                 fx.fillStyle = 'rgba(0,0,0,0.35)'; fx.fillRect(0, 0, N, N);
             }
             try {
