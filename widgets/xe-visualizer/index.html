@@ -300,7 +300,7 @@
     <main id="app" class="shape-wide layout-split no-dur">
         <div id="art-wrap">
             <div id="art-ph"><svg viewBox="0 0 24 24"><path d="M9 17.5a3.5 3.5 0 1 1-2-3.16V5.2a1 1 0 0 1 .76-.97l10-2.5A1 1 0 0 1 19 2.7v12.8a3.5 3.5 0 1 1-2-3.16V7.28l-8 2V17.5z"/></svg></div>
-            <canvas id="art-fill" width="16" height="16"></canvas>
+            <canvas id="art-fill" width="128" height="128"></canvas>
             <img id="art" alt="">
             <div id="yt-top" class="yt-band"><img id="yt-av" alt=""><span id="yt-ch"></span><svg id="yt-ver" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.4 14.2-4.1-4.1 1.4-1.4 2.7 2.7 5.8-5.8 1.4 1.4z"/></svg><span id="yt-subs"></span></div>
             <div id="yt-bot" class="yt-band"><span id="yt-likes"><svg viewBox="0 0 24 24"><path d="M2 21h3V9H2v12zM22 10a2 2 0 0 0-2-2h-6.3l1-4.6v-.3c0-.4-.2-.8-.4-1.1L13.2 1 6.6 7.6C6.2 8 6 8.5 6 9v10a2 2 0 0 0 2 2h9c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.2-.5.2-.7v-2z"/></svg><b></b></span><span id="yt-stats"></span></div>
@@ -928,11 +928,14 @@
             app.classList.add('has-art');
             var wide = artImg.naturalWidth > artImg.naturalHeight * 1.15;
             app.classList.toggle('art-wide', wide);
-            if (wide) {   // drawn tiny and stretched by the browser = a soft blur, no CSS filter needed
-                var fx = artFill.getContext('2d'), iw = artImg.naturalWidth, ih = artImg.naturalHeight, sc = 16 / Math.min(iw, ih);
-                fx.clearRect(0, 0, 16, 16);
-                fx.drawImage(artImg, (16 - iw * sc) / 2, (16 - ih * sc) / 2, iw * sc, ih * sc);
-                fx.fillStyle = 'rgba(0,0,0,0.35)'; fx.fillRect(0, 0, 16, 16);
+            if (wide) {   // blurred once into a small canvas (no CSS filter: those upset iCUE's redraws)
+                var fx = artFill.getContext('2d'), iw = artImg.naturalWidth, ih = artImg.naturalHeight, N = 128;
+                var sc = N * 1.15 / Math.min(iw, ih);   // a little oversized so the blur has no faded edges
+                fx.clearRect(0, 0, N, N);
+                fx.filter = 'blur(7px)';
+                fx.drawImage(artImg, (N - iw * sc) / 2, (N - ih * sc) / 2, iw * sc, ih * sc);
+                fx.filter = 'none';
+                fx.fillStyle = 'rgba(0,0,0,0.35)'; fx.fillRect(0, 0, N, N);
             }
             try {
                 var c = document.createElement('canvas'); c.width = c.height = 24;

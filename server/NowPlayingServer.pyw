@@ -391,7 +391,7 @@ def find_site(app_id, title):
         if head and title in head and 0 < len(tail.strip()) <= 30:
             name, page = tail.strip(), head.strip()
             break
-    return {"host": host, "name": name, "page": page or name, "visited": visited / 1e6, "icon": _site_icon(kind, prof, url, f"{parts.scheme}://{parts.netloc}/")}
+    return {"host": host, "name": name, "page": page or name, "url": url, "visited": visited / 1e6, "icon": _site_icon(kind, prof, url, f"{parts.scheme}://{parts.netloc}/")}
 
 
 def _site_icon(kind, prof, url, origin):
@@ -556,9 +556,15 @@ class MediaInfo:
             self.data["yt"] = self._yt_meta if self._hd_title == title else None
             # YouTube: swap in the HD thumbnail whenever the low-res one is showing, including after
             # switching back to the video's tab (looked-up videos come from the cache instantly).
-            if self.data["platform"] == "youtube" and title and self._hd_title != title and self._hd_tried != title                     and time.monotonic() >= self._hd_retry_at:
-                self._hd_tried = title
-                asyncio.ensure_future(self._youtube_hd_art(title, info.artist or ""))
+            # The video's ID from the browser history is exact; without it, search by title. Finding the ID
+            # later (history is written a little late) starts a new lookup straight away.
+            vid = re.search(r"[?&]v=([\w-]{11})", site["url"]) if site and site["host"].endswith("youtube.com") else None
+            vid = vid.group(1) if vid else ""
+            hd_key = f"{title}|{vid}"
+            if self.data["platform"] == "youtube" and title and self._hd_title != title and self._hd_tried != hd_key \
+                    and (vid or time.monotonic() >= self._hd_retry_at):
+                self._hd_tried = hd_key
+                asyncio.ensure_future(self._youtube_hd_art(title, info.artist or "", vid, hd_key))
         except Exception as e:
             log.debug(f"SMTC poll failed: {type(e).__name__}: {e}")
 
@@ -573,17 +579,17 @@ class MediaInfo:
     _hd_retry_at = 0.0  # after a failed lookup, wait before trying again
     _yt_meta = None    # channel name/avatar, views and age for the video whose HD art is showing
 
-    async def _youtube_hd_art(self, title, channel):
-        """Browsers hand Windows a tiny YouTube thumbnail. Look the video up by its exact title
-        (and channel) and use YouTube's own HD thumbnail instead, plus the channel avatar, views and
-        age for the video card. No exact match: keep what we have."""
-        key = (title, channel)
+    async def _youtube_hd_art(self, title, channel, vid, hd_key):
+        """Browsers hand Windows a tiny YouTube thumbnail. Look the video up (by its ID, or else by its
+        exact title and channel) and use YouTube's own HD thumbnail instead, plus the channel avatar,
+        views and age for the video card. Not found: keep what we have."""
+        key = (title, vid or channel)
         found = self._hd_cache.get(key)
         if found is None:
-            found = await asyncio.to_thread(self._find_youtube_thumb, title, channel)
+            found = await asyncio.to_thread(self._find_youtube_thumb, title, channel, vid)
             if not found:
                 # not cached, so switching back to the video later tries again (e.g. network was down)
-                if self._hd_tried == title:
+                if self._hd_tried == hd_key:
                     self._hd_tried = ""
                     self._hd_retry_at = time.monotonic() + 30
                 return
@@ -599,7 +605,7 @@ class MediaInfo:
             log.info(f"HD thumbnail for {title!r}")
 
     @staticmethod
-    def _find_youtube_thumb(title, channel):
+    def _find_youtube_thumb(title, channel, vid=""):
         import io
         import json as _json
         import re as _re
@@ -615,52 +621,53 @@ class MediaInfo:
         def norm(t):
             return _re.sub(r"\s+", " ", t).strip().casefold()
 
-        try:
-            q = urllib.parse.quote_plus(f"{title} {channel}".strip())
-            page = get(f"https://www.youtube.com/results?search_query={q}").decode("utf-8", "replace")
-            m = _re.search(r"var ytInitialData = (\{.*?\});</script>", page)
-            if not m:
-                return ""
-            data = _json.loads(m.group(1))
-            found = []
+        def first(o, k):   # first value stored under key k anywhere in o
+            if isinstance(o, dict):
+                if k in o:
+                    return o[k]
+                o = list(o.values())
+            if isinstance(o, list):
+                for x in o:
+                    r = first(x, k)
+                    if r is not None:
+                        return r
+            return None
 
-            def walk(o):
-                if isinstance(o, dict):
-                    v = o.get("videoRenderer")
-                    if isinstance(v, dict) and v.get("videoId"):
-                        t = "".join(r.get("text", "") for r in v.get("title", {}).get("runs", []))
-                        c = "".join(r.get("text", "") for r in v.get("ownerText", {}).get("runs", []))
-                        views = (v.get("shortViewCountText") or v.get("viewCountText") or {}).get("simpleText") \
-                            or "".join(r.get("text", "") for r in (v.get("shortViewCountText") or {}).get("runs", []))
-                        age = (v.get("publishedTimeText") or {}).get("simpleText", "")
-                        thumbs = (v.get("channelThumbnailSupportedRenderers", {}).get("channelThumbnailWithLinkRenderer", {})
-                                  .get("thumbnail", {}).get("thumbnails", []))
-                        owner = [(b.get("metadataBadgeRenderer") or {}).get("style", "") for b in v.get("ownerBadges", [])]
-                        found.append((v["videoId"], t, c, {
-                            "views": views or "", "age": age, "channel": c,
-                            "avatar": thumbs[-1]["url"] if thumbs else "",
-                            "verified": any("VERIFIED" in o or "ARTIST" in o for o in owner)}))
-                    for x in o.values():
-                        walk(x)
-                elif isinstance(o, list):
-                    for x in o:
-                        walk(x)
-            walk(data)
-            want = norm(title)
-            matches = [f for f in found if norm(f[1]) == want]
-            if channel:   # prefer the same channel when titles repeat
-                matches.sort(key=lambda f: norm(f[2]) != norm(channel))
-            if not matches:
-                return {}
-            vid, meta = matches[0][0], dict(matches[0][3])
-            try:   # subscriber and like counts are only on the watch page; the card works without them
+        def short_age(t):   # "2 hours ago" -> "2h ago", so it fits the card
+            m = _re.match(r"(?:Streamed )?(\d+) (second|minute|hour|day|week|month|year)s? ago", t)
+            units = {"second": "s", "minute": "m", "hour": "h", "day": "d", "week": "w", "month": "mo", "year": "y"}
+            return f"{m.group(1)}{units[m.group(2)]} ago" if m else t
+
+        try:
+            meta = {}
+            if not vid:
+                vid, meta = MediaInfo._search_youtube(title, channel, get, norm)
+                if not vid:
+                    return {}
+            # the watch page has the subscriber and like counts, and everything else when we came with an ID
+            try:
                 w = get(f"https://www.youtube.com/watch?v={vid}").decode("utf-8", "replace")
-                subs = _re.search(r'"subscriberCountText":\{.*?"simpleText":"([^"]+)"', w)
+                m = _re.search(r"var ytInitialData = (\{.*?\});</script>", w)
+                wd = _json.loads(m.group(1)) if m else {}
+                pri, own = first(wd, "videoPrimaryInfoRenderer") or {}, first(wd, "videoOwnerRenderer") or {}
+                thumbs = own.get("thumbnail", {}).get("thumbnails", [])
+                badges = [(b.get("metadataBadgeRenderer") or {}).get("style", "") for b in own.get("badges", [])]
+                meta["views"] = meta.get("views") or ((first(pri, "extraShortViewCount") or {}).get("simpleText") or "")
+                meta["age"] = meta.get("age") or (pri.get("relativeDateText") or {}).get("simpleText", "")
+                meta["channel"] = meta.get("channel") or "".join(r.get("text", "") for r in own.get("title", {}).get("runs", []))
+                meta["avatar"] = meta.get("avatar") or (thumbs[-1]["url"] if thumbs else "")
+                meta["verified"] = meta.get("verified") or any("VERIFIED" in b or "ARTIST" in b for b in badges)
+                subs = (own.get("subscriberCountText") or {}).get("simpleText", "")
                 likes = _re.search(r'"factoidRenderer":\{"value":\{"simpleText":"([^"]+)"\},"label":\{"simpleText":"Likes"', w)
-                meta["subs"] = subs.group(1).replace(" subscribers", " subs") if subs else ""
+                meta["subs"] = subs.replace(" subscribers", " subs")
                 meta["likes"] = likes.group(1) if likes else ""
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug(f"YouTube watch page failed: {e}")
+            if not meta.get("channel"):
+                return {}   # came with an ID but the page didn't load: try again later
+            meta["age"] = short_age(meta.get("age", ""))
+            if meta["avatar"].startswith("//"):
+                meta["avatar"] = "https:" + meta["avatar"]
             if meta["avatar"]:   # small round channel picture, as a data URL (iCUE can't load remote images)
                 try:
                     av = Image.open(io.BytesIO(get(meta["avatar"]))).convert("RGB").resize((88, 88), Image.LANCZOS)
@@ -690,6 +697,50 @@ class MediaInfo:
         except Exception as e:
             log.debug(f"YouTube HD thumbnail lookup failed: {type(e).__name__}: {e}")
         return {}
+
+    @staticmethod
+    def _search_youtube(title, channel, get, norm):
+        """(video ID, card details) of the search result with exactly this title, or ("", {})."""
+        import json as _json
+        import re as _re
+        import urllib.parse
+        q = urllib.parse.quote_plus(f"{title} {channel}".strip())
+        page = get(f"https://www.youtube.com/results?search_query={q}").decode("utf-8", "replace")
+        m = _re.search(r"var ytInitialData = (\{.*?\});</script>", page)
+        if not m:
+            return "", {}
+        data = _json.loads(m.group(1))
+        found = []
+
+        def walk(o):
+            if isinstance(o, dict):
+                v = o.get("videoRenderer")
+                if isinstance(v, dict) and v.get("videoId"):
+                    t = "".join(r.get("text", "") for r in v.get("title", {}).get("runs", []))
+                    c = "".join(r.get("text", "") for r in v.get("ownerText", {}).get("runs", []))
+                    views = (v.get("shortViewCountText") or v.get("viewCountText") or {}).get("simpleText") \
+                        or "".join(r.get("text", "") for r in (v.get("shortViewCountText") or {}).get("runs", []))
+                    age = (v.get("publishedTimeText") or {}).get("simpleText", "")
+                    thumbs = (v.get("channelThumbnailSupportedRenderers", {}).get("channelThumbnailWithLinkRenderer", {})
+                              .get("thumbnail", {}).get("thumbnails", []))
+                    owner = [(b.get("metadataBadgeRenderer") or {}).get("style", "") for b in v.get("ownerBadges", [])]
+                    found.append((v["videoId"], t, c, {
+                        "views": views or "", "age": age, "channel": c,
+                        "avatar": thumbs[-1]["url"] if thumbs else "",
+                        "verified": any("VERIFIED" in o or "ARTIST" in o for o in owner)}))
+                for x in o.values():
+                    walk(x)
+            elif isinstance(o, list):
+                for x in o:
+                    walk(x)
+        walk(data)
+        want = norm(title)
+        matches = [f for f in found if norm(f[1]) == want]
+        if channel:   # prefer the same channel when titles repeat
+            matches.sort(key=lambda f: norm(f[2]) != norm(channel))
+        if not matches:
+            return "", {}
+        return matches[0][0], dict(matches[0][3])
 
     def _pick_session(self, manager):
         """Prefer a session that is actually playing; Windows' "current" one may be paused."""
