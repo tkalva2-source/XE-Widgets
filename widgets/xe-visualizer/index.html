@@ -388,9 +388,7 @@
         function readSettings() {
             // iCUE exposes each property as a global of the same name.
             if (typeof vizStyle !== 'undefined') S.vizStyle = oneOf(vizStyle, STYLES, 'bars');
-            // A style picked by tapping the widget sticks until the Style setting in iCUE is changed.
-            S.icueStyle = S.vizStyle;
-            try { var o = JSON.parse(localStorage.getItem('xev.style') || 'null'); if (o && o.base === S.vizStyle && STYLES.indexOf(o.style) >= 0) S.vizStyle = o.style; } catch (e) {}
+            try { localStorage.removeItem('xev.style'); } catch (e) {}   // left over from tap-to-change-style
             if (typeof layout !== 'undefined') S.layout = oneOf(layout, ['split', 'overlay', 'viz', 'info'], 'split');
             if (typeof perfMode !== 'undefined') S.perfMode = oneOf(perfMode, ['eco', 'balanced', 'smooth'], 'balanced');
             if (typeof barCount !== 'undefined') S.barCount = Math.round(numIn(barCount, 8, 96, 48));
@@ -628,6 +626,26 @@
                 ctx.fillStyle = paint; ctx.fill();
             }
             body();
+            if (S.glow) {   // soft halo: the same shapes stroked wide and faint (no blur filters in iCUE)
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.14 + pulse * 0.12;
+                ctx.lineWidth = Math.max(3, bw * 0.55); ctx.lineJoin = 'round'; ctx.strokeStyle = solid; ctx.stroke();
+                ctx.restore();
+            }
+            // lit tips: the top of each bar glows brighter, only inside the bar itself
+            var tipH = Math.max(2, H * 0.016);
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.beginPath();
+            for (var j = 0; j < n; j++) {
+                var hj = bars[j] * half * 0.94;
+                if (hj <= minH) continue;
+                var xj = j * (bw + gap);
+                ctx.rect(xj, (mir ? half : base) - hj, bw, tipH * 2);
+                if (mir) ctx.rect(xj, half + hj - tipH * 2, bw, tipH * 2);
+            }
+            ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fill();
+            ctx.restore();
             if (L.refl) reflected(base, body);
             if (!S.peakCaps) return;
             ctx.beginPath();
@@ -793,14 +811,13 @@
                 if (vizVisible && W > 0 && H > 0) {
                     if (texDirty) buildPaint();
                     ctx.clearRect(0, 0, W, H);
-                    if (alive || demo) {
-                        drawPulse();
-                        if (S.vizStyle === 'led') drawLed();
-                        else if (S.vizStyle === 'dots') drawDots();
-                        else if (S.vizStyle === 'wave') drawWave();
-                        else if (S.vizStyle === 'radial') drawRadial(dt);
-                        else drawBars();
-                    }
+                    // always drawn, so in silence or on pause the bars rest at their minimum instead of vanishing
+                    drawPulse();
+                    if (S.vizStyle === 'led') drawLed();
+                    else if (S.vizStyle === 'dots') drawDots();
+                    else if (S.vizStyle === 'wave') drawWave();
+                    else if (S.vizStyle === 'radial') drawRadial(dt);
+                    else drawBars();
                 }
                 // Keep going while there's motion; otherwise sleep until data or a setting wakes us.
                 if (alive || demo || (now() - lastBandsAt < 300 && gotSound)) raf = requestAnimationFrame(frame);
@@ -809,13 +826,6 @@
                 raf = requestAnimationFrame(frame);
             }
         }
-
-        cv.addEventListener('click', function () {
-            var next = STYLES[(STYLES.indexOf(S.vizStyle) + 1) % STYLES.length];
-            S.vizStyle = next; texDirty = true; spin = 0;
-            try { localStorage.setItem('xev.style', JSON.stringify({ base: S.icueStyle, style: next })); } catch (e) {}
-            wake();
-        });
 
         function sizeCanvas() {
             var r = cv.getBoundingClientRect();

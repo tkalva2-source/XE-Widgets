@@ -1,0 +1,39 @@
+{
+  "en": {
+    "translation": {
+      "12 hour": "12 hour",
+      "24 hour": "24 hour",
+      "Automatic": "Automatic",
+      "Background": "Background",
+      "Background Color": "Background Color",
+      "Celsius": "Celsius",
+      "City (blank for automatic)": "City (blank for automatic)",
+      "Clock": "Clock",
+      "Clock Font": "Clock Font",
+      "Cycle (fast)": "Cycle (fast)",
+      "Cycle (slow)": "Cycle (slow)",
+      "Date": "Date",
+      "Demo (cycle through weather and times)": "Demo (cycle through weather and times)",
+      "Fahrenheit": "Fahrenheit",
+      "Hourly Forecast": "Hourly Forecast",
+      "Live Weather Sky": "Live Weather Sky",
+      "None": "None",
+      "Nov 15, 2026": "Nov 15, 2026",
+      "Off": "Off",
+      "Seconds": "Seconds",
+      "Solid Color": "Solid Color",
+      "Sun, Nov 15": "Sun, Nov 15",
+      "Sunday, November 15": "Sunday, November 15",
+      "Text Color": "Text Color",
+      "Text Size": "Text Size",
+      "Time Format": "Time Format",
+      "Time Zone": "Time Zone",
+      "Transparent": "Transparent",
+      "Units": "Units",
+      "Weather": "Weather",
+      "Weather Animations": "Weather Animations",
+      "Widget Personalization": "Widget Personalization",
+      "XE Weather Clock": "XE Weather Clock"
+    }
+  }
+}

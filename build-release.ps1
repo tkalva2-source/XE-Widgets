@@ -2,6 +2,7 @@
 #   dist\XE-Widgets-Server.exe     companion server, installs itself when run (no Python needed)
 #   dist\XE-Chat.icuewidget        double-click to add to iCUE
 #   dist\XE-Visualizer.icuewidget
+#   dist\XE-Weather-Clock.icuewidget
 # Needs Python 3.10+ (used only to build the exe).
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -13,6 +14,7 @@ New-Item -ItemType Directory $dist | Out-Null
 
 [IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $here 'widgets\xe-chat'), (Join-Path $dist 'XE-Chat.icuewidget'))
 [IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $here 'widgets\xe-visualizer'), (Join-Path $dist 'XE-Visualizer.icuewidget'))
+[IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $here 'widgets\xe-weather-clock'), (Join-Path $dist 'XE-Weather-Clock.icuewidget'))
 
 py -m pip install --quiet --upgrade pyinstaller -r (Join-Path $here 'server\requirements.txt')
 py -m PyInstaller --noconfirm --onefile --windowed --name XE-Widgets-Server `

@@ -337,10 +337,10 @@
         .rp-l b { color: var(--text-2); font-weight: 550; }
         .rp-l span { overflow: hidden; text-overflow: ellipsis; }
         .rp-l svg.i { width: 1.1em; height: 1.1em; }
-        .rp > .t, .ft > .t { padding-top: calc(var(--fs) * 1.2); }
+        .rp > .t, .ft > .t, .rw-row > .t { padding-top: calc(var(--fs) * 1.2); }
 
-        .hl, .ft, .bits-row { margin: 3px 8px; padding: 4px 8px; border-radius: 10px; }
-        .hl::before, .ft::before, .bits-row::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; }
+        .hl, .ft, .bits-row, .rw-row { margin: 3px 8px; padding: 4px 8px; border-radius: 10px; }
+        .hl::before, .ft::before, .bits-row::before, .rw-row::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; }
         .hl { background: var(--accent-soft); }
         .hl::before { background: var(--accent); }
         .hl .at { color: var(--accent-hi); background: none; padding: 0; }
@@ -348,6 +348,13 @@
         .ft::before { background: var(--gold); }
         .ft-l { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; line-height: 20px; color: var(--gold); }
         .ft-l svg { width: 12px; height: 12px; fill: currentColor; }
+        /* channel points: a reward redeemed with a message, or "Highlight my message" */
+        .rw-row { background: rgba(145, 70, 255, 0.08); }
+        .rw-row::before { background: #A970FF; }
+        .rw-row.hlm { background: rgba(145, 70, 255, 0.2); }
+        .rw-l { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; line-height: 20px; color: #BF94FF; }
+        .rw-l svg { width: 12px; height: 12px; fill: currentColor; }
+        .lnk { color: var(--accent-hi); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; cursor: pointer; }
         .bits-row { background: rgba(43, 196, 180, 0.07); }
         .bits-row::before { background: var(--bits); }
         .bits { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; color: var(--bits); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -366,6 +373,7 @@
         .ev-gift { --ev-soft: rgba(255, 92, 168, 0.15); --ev-hi: #FF8CC6; }
         .ev-raid { --ev-soft: rgba(255, 138, 31, 0.15); --ev-hi: #FFB06B; }
         .ev-ann { --ev-soft: rgba(43, 196, 180, 0.15); --ev-hi: #6FE0D3; }
+        .ev-rw { --ev-soft: rgba(145, 70, 255, 0.16); --ev-hi: #BF94FF; }
 
         .fadein { animation: fadein 0.18s ease-out both; }
         @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -605,6 +613,7 @@
             gift: '<svg viewBox="0 0 18 18"><path d="M2 7h14v3H2zM3 10h12v6H3z"/><path d="M9 7v9" stroke="#000" stroke-opacity=".25"/><path d="M9 7C7 3 4 4 5 6s4 1 4 1zM9 7c2-4 5-3 4-1s-4 1-4 1z"/></svg>',
             raid: '<svg viewBox="0 0 18 18"><path d="M3 15l6-6M9 9l6-6M12 3h3v3M3 12l3 3M11 11l4 4"/></svg>',
             mega: '<svg viewBox="0 0 18 18"><path d="M3 7v4h3l6 4V3L6 7z"/></svg>',
+            points: '<svg viewBox="0 0 18 18"><path d="M9 1.5a7.5 7.5 0 1 0 7.5 7.5h-2.2A5.3 5.3 0 1 1 9 3.7z"/><path d="M9.5 5.5a3.5 3.5 0 0 1 3 3H9.5z"/></svg>',
             spark: '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.2 6.6L21 11.5l-6.8 2.3L12 20.5l-2.2-6.7L3 11.5l6.8-2.4z"/></svg>',
             gem: '<svg viewBox="0 0 18 18"><path d="M9 1.5l6.5 5.5L9 16.5 2.5 7z" fill="#2BC4B4"/><path d="M9 1.5L6 7h6zM2.5 7H15.5L9 16.5z" fill="#7FE6DB" opacity=".55"/></svg>',
             twitch: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.3 2 3 5.4V20h5v2.6h2.8l2.6-2.6h4l4.6-4.6V2zm15.9 12.6-3 3h-4.6l-2.6 2.6v-2.6H5.6V3.8h14.6zM16 7.4h1.8v5H16zm-4.6 0h1.8v5h-1.8z"/></svg>'
@@ -1048,6 +1057,7 @@
             ]);
             checkMod();
             loadTwitchEmotes();
+            eventsSync();
         }
 
         // ── Room modes (IRC ROOMSTATE) ────────────────────────────
@@ -1157,6 +1167,26 @@
             displayNames[login] = display || login;
         }
 
+        var LINK_RE = /^(https?:\/\/|www\.)[^\s]+\.[^\s]+/i;
+        // iCUE can't open pages, so the server opens tapped links in the PC's browser
+        function openLink(url) {
+            fetch('http://localhost:' + S.serverPort + '/open?u=' + encodeURIComponent(url), { cache: 'no-store' })
+                .then(function (r) { toast(r.ok ? 'Opened in your browser' : 'Couldn\u2019t open that link', !r.ok); })
+                .catch(function () { toast('Start the XE server to open links', true); });
+        }
+        function copyText(text) {
+            function fallback() {
+                var ta = el('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+                var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+                ta.remove(); toast(ok ? 'Copied' : 'Couldn\u2019t copy', !ok);
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast('Copied'); }, fallback);
+            else fallback();
+        }
+        function messageText(rowEl) {   // the message as typed: emotes back to their names
+            var tx = rowEl.querySelector('.c > span:last-child'); if (!tx) return '';
+            return Array.from(tx.childNodes).map(function (n) { return n.nodeName === 'IMG' ? n.title : n.textContent; }).join('').trim();
+        }
         function renderText(container, text, emoteTag, offset) {
             // Twitch emote positions count Unicode code points, not UTF-16 units.
             var cps = Array.from(text), ranges = [];
@@ -1172,6 +1202,7 @@
                     if (!w) return;
                     var url = emoteMap[w];
                     if (url) { var im = el('img', 'e'); setImg(im, url); im.title = w; container.appendChild(im); emotes++; }
+                    else if (LINK_RE.test(w)) { var lw = w.replace(/[).,!?:;'"]+$/, ''), ln = el('span', 'lnk', lw); ln.dataset.url = /^www\./i.test(lw) ? 'https://' + lw : lw; container.appendChild(ln); if (w.length > lw.length) container.appendChild(document.createTextNode(w.slice(lw.length))); words++; }
                     else if (w[0] === '@' && w.length > 1) { var ml = w.replace(/[^@A-Za-z0-9_]+$/, ''), mn = el('span', 'at', ml), lk = ml.slice(1).toLowerCase(); mn.style.background = userColors[lk] || nameColor('', lk); container.appendChild(mn); if (w.length > ml.length) container.appendChild(document.createTextNode(w.slice(ml.length))); words++; }
                     else { container.appendChild(document.createTextNode(w)); if (w.trim()) words++; }
                 });
@@ -1204,6 +1235,9 @@
             if (t['first-msg'] === '1') cls.push('ft');
             if (t['reply-parent-display-name']) cls.push('rp');
             if (t.bits) cls.push('bits-row');
+            var rwId = t['custom-reward-id'], hlMsg = t['msg-id'] === 'highlighted-message';
+            if (rwId || hlMsg) cls.push('rw-row');
+            if (hlMsg) cls.push('hlm');
             if (highlightRe && login !== (auth && auth.login) && highlightRe.test(text)) cls.push('hl');
             var r = row(cls.join(' '), ts);
             r.style.setProperty('--uc', ncol);
@@ -1211,6 +1245,12 @@
             r.dataset.id = t.id || ''; r.dataset.login = login; r.dataset.uid = t['user-id'] || '';
             var body_ = el('div'), emoteOffset = 0;
             if (t['first-msg'] === '1') { var f = el('div', 'ft-l'); f.appendChild(svgEl(ICON.spark)); f.appendChild(document.createTextNode('First-time chatter')); body_.appendChild(f); }
+            if (rwId || hlMsg) {
+                var rw = el('div', 'rw-l'), rd = rewards[rwId]; rw.appendChild(svgEl(ICON.points));
+                // reward names are only known on your own channel; elsewhere Twitch sends just an ID
+                rw.appendChild(document.createTextNode(hlMsg ? 'Highlighted their message' : rd ? 'Redeemed ' + rd.title + ' \u00b7 ' + fmtNum(rd.cost) : 'Redeemed a reward'));
+                body_.appendChild(rw);
+            }
             if (t['reply-parent-display-name']) {
                 var rp = el('div', 'rp-l'); rp.appendChild(svgEl(ICON.reply));
                 var sp = el('span'); sp.appendChild(document.createTextNode('Replying to ')); sp.appendChild(el('b', '', '@' + t['reply-parent-display-name']));
@@ -1274,6 +1314,50 @@
             b.appendChild(h);
             if (m.params[1]) { var c = el('p', 'c'); renderText(c, m.params[1], t.emotes); b.appendChild(c); }
             ev.appendChild(b);
+            queue(ev);
+        }
+        // ── Channel point redemptions on your own channel ─────────
+        // Twitch only shares these with the channel owner. Rewards with a message also arrive in
+        // chat (labelled above); the rest come from EventSub, which iCUE can't reach, so via the server.
+        var rewards = {}, es = null, esFor = '', esMoved = false, esAsked = false;
+        function eventsSync() {
+            var mine = auth && auth.uid && room.id === auth.uid, scoped = mine && (auth.scopes || []).indexOf('channel:read:redemptions') >= 0;
+            if (mine && !scoped && !esAsked) { esAsked = true; sysMsg('Sign in again to see every channel point redemption on your channel'); }
+            var want = scoped ? room.id : '';
+            if (want === esFor) return;
+            if (es) { es.onclose = es.onmessage = null; try { es.close(); } catch (e) {} es = null; }
+            esFor = want; rewards = {};
+            if (!want) return;
+            helix('GET', '/channel_points/custom_rewards?broadcaster_id=' + want)
+                .then(function (d) { (d.data || []).forEach(function (r) { rewards[r.id] = { title: r.title, cost: r.cost }; }); })
+                .catch(function () {});   // not an affiliate yet: no rewards
+            var s; try { s = new WebSocket('ws://localhost:' + S.serverPort); } catch (e) { return; }
+            es = s; esMoved = false;
+            s.onopen = function () { s.send(JSON.stringify({ type: 'eventsub' })); };
+            s.onmessage = function (ev) {
+                var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+                var kind = m.metadata && m.metadata.message_type, pl = m.payload || {};
+                if (kind === 'session_welcome') {
+                    if (esMoved) { esMoved = false; return; }   // Twitch moved the feed: subscriptions carried over
+                    helix('POST', '/eventsub/subscriptions', { type: 'channel.channel_points_custom_reward_redemption.add', version: '1',
+                        condition: { broadcaster_user_id: want }, transport: { method: 'websocket', session_id: pl.session.id } })
+                        .catch(function (e) { diag('eventsub', e.message); });
+                } else if (kind === 'session_reconnect') esMoved = true;
+                else if (kind === 'notification' && pl.event && pl.event.reward && esFor === want) {
+                    var e = pl.event; rewards[e.reward.id] = { title: e.reward.title, cost: e.reward.cost };
+                    if (!e.user_input) addRedemption(e);   // ones with a message show up in chat instead
+                }
+            };
+            s.onclose = function () { if (es !== s) return; es = null; esFor = ''; setTimeout(eventsSync, 5000); };
+        }
+        function addRedemption(e) {
+            var ev = el('div', 'ev ev-rw'), icw = el('div'), ic = el('div', 'ev-ic');
+            ic.appendChild(svgEl(ICON.points)); icw.appendChild(ic); ev.appendChild(icw);
+            var b = el('div'), h = el('div', 'ev-h');
+            h.appendChild(el('b', '', e.user_name || e.user_login || 'Someone'));
+            h.appendChild(document.createTextNode('redeemed ' + e.reward.title));
+            h.appendChild(el('span', 'ev-meta', fmtNum(e.reward.cost)));
+            b.appendChild(h); ev.appendChild(b);
             queue(ev);
         }
         function sysMsg(text, mod, boldPart) {
@@ -1384,6 +1468,7 @@
         var chatDrag = dragScroller(chat, null);
         chat.addEventListener('click', function (e) {
             if (chatDrag.suppressed()) return;
+            var lk = e.target.closest('.lnk'); if (lk) { openLink(lk.dataset.url); return; }
             var r = e.target.closest('.r'); if (!r || !r.dataset.login) return;
             r.classList.add('tapped'); setTimeout(function () { r.classList.remove('tapped'); }, 250);
             openCard(r.dataset.login, r.dataset.uid, r.dataset.id, r);
@@ -1420,7 +1505,8 @@
             var cv = $('pv'), bm = pick.bm;
             if (cv.width !== bm.width || cv.height !== bm.height) { cv.width = bm.width; cv.height = bm.height; }
             cv.getContext('2d').drawImage(bm, 0, 0); bm.close();
-            if (!cv.classList.contains('live')) { cv.classList.add('live'); $('pv-msg').textContent = ''; }
+            if (!cv.classList.contains('live')) cv.classList.add('live');
+            if (pvMsg.textContent) pvMsg.textContent = '';   // frames are coming again: drop any error or reconnect note
         }
         function previewStop() {
             clearTimeout(pvRetry); pvFor = '';
@@ -1430,6 +1516,7 @@
             pvFrames.forEach(function (f) { f.bm.close(); }); pvFrames = [];
         }
         // The server decodes the stream (iCUE can't play Twitch video) and sends JPEG frames.
+        var pvMsg = $('pv-msg');
         function previewSync() {
             var want = L.preview && room.live && room.login;
             body.classList.toggle('pv-on', !!L.preview); $('eyebtn').classList.toggle('on', !!L.preview); pvSize();
@@ -1595,7 +1682,7 @@
         }
 
         // ── Twitch account (device-code sign-in) ──────────────────
-        var SCOPES = 'moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:shield_mode user:read:moderated_channels user:write:chat user:read:emotes user:read:follows';
+        var SCOPES = 'moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:shield_mode user:read:moderated_channels user:write:chat user:read:emotes user:read:follows channel:read:redemptions';
         var AUTH_KEY = 'xechat.auth', auth = null, isMod = false;
         try { auth = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch (e) { auth = null; }
         function saveAuth() { try { auth ? localStorage.setItem(AUTH_KEY, JSON.stringify(auth)) : localStorage.removeItem(AUTH_KEY); } catch (e) {} highlightRe = buildHighlight(); updateComposer(); }
@@ -1678,6 +1765,10 @@
         }
         input.addEventListener('focus', function () { $('field').classList.add('focus'); if (!signedIn()) { input.blur(); openLogin(); } });
         input.addEventListener('blur', function () { $('field').classList.remove('focus'); });
+        $('field').addEventListener('pointerdown', function (e) {
+            if (e.target === input || e.target.closest('#emobtn')) return;
+            e.preventDefault(); input.focus();
+        });
         $('composer').addEventListener('submit', function (e) {
             e.preventDefault();
             if (!signedIn()) { openLogin(); return; }
@@ -2052,7 +2143,7 @@
             box.scrollTop = keep;
         }
         function clearSession() {   // local sign-out state, shared by Sign out and an expired refresh token
-            auth = null; myAvatar = ''; isMod = false; body.classList.remove('is-mod'); delete ESETS['twitch:user']; delete ESETS['twitch:global']; delete ESETS['twitch:channel'];
+            auth = null; myAvatar = ''; isMod = false; setTimeout(eventsSync, 0); body.classList.remove('is-mod'); delete ESETS['twitch:user']; delete ESETS['twitch:global']; delete ESETS['twitch:channel'];
             var me = $('me'); if (me.tagName === 'IMG') { var d = el('div'); d.id = 'me'; d.appendChild(svgEl('<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>')); me.replaceWith(d); }
             if (sheetKind === 'mod') closeSheet();
             putSet('_', 'none', 'none', []);
@@ -2095,7 +2186,7 @@
                         auth = { clientId: cid, access: t.access_token, refresh: t.refresh_token, login: v.login, uid: v.user_id, scopes: v.scopes || [] };
                         diag('signed in', v.login, 'scopes=' + (v.scopes || []).length);
                         saveAuth(); closeSheet(); toast('Signed in as ' + v.login);
-                        loadMyAvatar(); checkMod(); loadTwitchEmotes();
+                        loadMyAvatar(); checkMod(); loadTwitchEmotes(); eventsSync();
                     } catch (e) {
                         var m = String(e.message || '');
                         if (/slow_down/i.test(m)) { every += 5000; loginPoll = setTimeout(poll, every); }
@@ -2160,6 +2251,13 @@
                 }
                 meta.textContent = lines.join('\n') || 'No details available';
             });
+            var said = messageText(rowEl), links = Array.from(rowEl.querySelectorAll('.lnk'));
+            if (said) {
+                var ra = el('div', 'row'); ra.style.marginTop = '12px';
+                ra.appendChild(chip('Copy message', false, function () { copyText(said); closeSheet(); }));
+                links.slice(0, 3).forEach(function (l) { ra.appendChild(chip('Open ' + l.dataset.url.replace(/^https?:\/\/(www\.)?/i, '').slice(0, 28), false, function () { openLink(l.dataset.url); closeSheet(); })); });
+                box.appendChild(ra);
+            }
             var msgs = userMsgs[login] || [];
             box.appendChild(el('div', 'sh-sec', 'Recent messages · ' + msgs.length + ' this session'));
             var list = el('div', 'card-msgs');

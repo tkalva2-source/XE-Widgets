@@ -37,7 +37,7 @@
         ['NightOwlNate', '#B39DDB', 'turbo/1'], ['cozycactus', '#80CBC4', ''], ['ByteSizedBen', '#FFD54F', 'premium/1'], ['sunny_sky', '#F48FB1', '']];
     var LINES = ['that sunset build is so clean', 'Kappa', 'LUL the creeper timing', 'first time catching you live, love the vibes',
         'how long did the castle take?', 'EZ', 'chat is so wholesome tonight <3', 'can we get a tour after this?', 'Clap Clap',
-        '@XE_Demo the lighting looks amazing', 'drop the seed pls', 'peepoHappy', 'I just got here, what are we building?', 'W stream'];
+        '@XE_Demo the lighting looks amazing', 'drop the seed pls', 'peepoHappy', 'I just got here, what are we building?', 'W stream', 'schedule is up at https://twitch.tv/xe_demo/schedule'];
     var EMOTE_IDS = { 'Kappa': '25', 'LUL': '425618', '<3': '9' };
     var n = 0;
     function ircLine() {
@@ -51,6 +51,10 @@
     }
     var SUB = '@badges=;color=#9146FF;display-name=StarStreamer;login=starstreamer;msg-id=resub;msg-param-cumulative-months=14;msg-param-sub-plan=1000;' +
         'system-msg=StarStreamer\\ssubscribed\\sat\\sTier\\s1.\\sThey\'ve\\ssubscribed\\sfor\\s14\\smonths!;tmi-sent-ts=' + Date.now() + ';user-id=999 :tmi.twitch.tv USERNOTICE #xe_demo :14 months already, love this community';
+
+    // channel points: a reward redeemed with a message, and "Highlight my message"
+    var REDEEM = '@badges=;color=#FF7F50;custom-reward-id=demo-reward;display-name=PixelPanda;id=rw1;tmi-sent-ts=' + Date.now() + ';user-id=2001 :pixelpanda!x@x PRIVMSG #xe_demo :play the sunset song next!';
+    var HIGHLIGHT = '@badges=;color=#2BC4B4;display-name=MossyMarten;id=rw2;msg-id=highlighted-message;tmi-sent-ts=' + Date.now() + ';user-id=2002 :mossymarten!x@x PRIVMSG #xe_demo :first time catching a stream live, hi everyone!';
 
     var prelude = function () {
         var stream = { title: 'Chill build night - sunset castle', game: { displayName: 'Minecraft' }, viewersCount: 1284, createdAt: new Date(Date.now() - 2.4 * 3600e3).toISOString() };
@@ -77,6 +81,8 @@
             if (m.type === 'irc') {
                 for (var i = 0; i < 9; i++) emit(parent.ircLine());
                 emit(parent.SUB);
+                emit(parent.REDEEM);
+                emit(parent.HIGHLIGHT);
                 for (var j = 0; j < 3; j++) emit(parent.ircLine());
                 this._t = setInterval(function () { emit(parent.ircLine()); }, 2500);
             }

@@ -241,34 +241,46 @@ class AudioCapture:
             log.info(f"Audio: {d['name']} @ {rate}Hz, {ch}ch")
 
         idle_since = time.monotonic()
+        latest = {}   # device index -> (its newest chunk with sound, when it arrived)
         while self._running and not self._restart:
             # A loopback device sends nothing at all while it's silent, so a
-            # blocking read would hang (and block source switches). Poll instead,
-            # and mix whichever devices currently have audio.
-            samples = None
+            # blocking read would hang (and block source switches). Poll instead.
+            # Devices deliver their chunks at different moments, and some (Sonar's Aux)
+            # keep sending pure silence: analysing whichever arrived alone made every
+            # other frame empty and the bars flicker. So skip silent chunks, and mix the
+            # newest chunk of every device that recently had sound.
+            fresh = None
             try:
-                for st, ch in self._streams:
+                for i, (st, ch) in enumerate(self._streams):
                     if st.get_read_available() < self.CHUNK:
                         continue
                     x = np.frombuffer(st.read(self.CHUNK, exception_on_overflow=False), dtype=np.int16).astype(np.float32)
                     if ch >= 2:
                         x = x.reshape(-1, ch).mean(axis=1)
-                    samples = x if samples is None else samples + x
+                    if np.abs(x).max() < 2:   # digital silence
+                        continue
+                    latest[i] = (x, time.monotonic())
+                    fresh = i if fresh is None else min(fresh, i)
             except Exception:
                 break
-            if samples is None:
-                if time.monotonic() - idle_since > 0.6 and any(self._bands):
+            now = time.monotonic()
+            for i in [i for i, (_, at) in latest.items() if now - at > 0.25]:
+                del latest[i]   # that device went quiet
+            if fresh is None:
+                if now - idle_since > 0.6 and any(self._bands):
                     self._publish(bytes(BANDS))  # went silent: drop the bars now
                 time.sleep(0.004)
                 continue
-            idle_since = time.monotonic()
+            idle_since = now
+            samples = sum(x for x, _ in latest.values())
 
             spec = np.abs(np.fft.rfft(samples * main_window))
             peak = self._peak.update(float(spec.max()))
             if peak > 0:
                 spec /= peak
 
-            bass_buf = np.concatenate([bass_buf, samples])[-bass_needed:]
+            if fresh == min(latest):   # one clock for the slow bass FFT, even with several devices
+                bass_buf = np.concatenate([bass_buf, samples])[-bass_needed:]
             if len(bass_buf) == bass_needed:
                 dec = bass_buf.reshape(self.BASS_CHUNK, decimate).mean(axis=1)
                 bass_spec = np.abs(np.fft.rfft(dec * bass_window))
@@ -877,6 +889,14 @@ class Server:
         parts = urlsplit(request.path)
         if parts.path == "/tw":
             return await self._twitch_proxy(parse_qs(parts.query), Headers, Response)
+        if parts.path == "/open":
+            # a link tapped in chat: open it in the PC's browser (iCUE can't). Web links only.
+            import webbrowser
+            url = (parse_qs(parts.query).get("u") or [""])[0]
+            ok = urlsplit(url).scheme in ("http", "https") and len(url) <= 2000 and not any(ord(ch) < 32 for ch in url)
+            if ok:
+                await asyncio.to_thread(webbrowser.open, url)
+            return Response(204 if ok else 400, "OK" if ok else "Bad Request", Headers({"Access-Control-Allow-Origin": "*"}), b"")
         if parts.path != "/img":
             return None  # normal WebSocket upgrade
         url = (parse_qs(parts.query).get("u") or [""])[0]
@@ -1175,6 +1195,34 @@ class Server:
                 log.warning(f"Chat relay for #{channel} dropped ({type(e).__name__}); reconnecting")
                 await asyncio.sleep(3)
 
+    async def _eventsub_relay(self, ws):
+        """Bridge Twitch's EventSub feed (live channel events such as channel point redemptions) for
+        the chat widget, which can't reach it from inside iCUE. Read-only: the widget makes the
+        subscriptions itself with its own sign-in; this only passes the feed's messages along."""
+        import websockets
+        url = "wss://eventsub.wss.twitch.tv/ws"
+        while ws.close_code is None:
+            try:
+                async with websockets.connect(url, max_size=2 ** 20) as up:
+                    url = "wss://eventsub.wss.twitch.tv/ws"
+                    async for frame in up:
+                        await ws.send(frame)
+                        try:
+                            m = json.loads(frame)
+                        except ValueError:
+                            continue
+                        if m.get("metadata", {}).get("message_type") == "session_reconnect":
+                            # Twitch is moving us: connect to the new address, subscriptions carry over
+                            new = m.get("payload", {}).get("session", {}).get("reconnect_url", "")
+                            if new.startswith("wss://eventsub.wss.twitch.tv/"):
+                                url = new
+                            break
+            except Exception as e:
+                if ws.close_code is not None:
+                    return
+                log.warning(f"EventSub relay dropped ({type(e).__name__}); reconnecting")
+                await asyncio.sleep(3)
+
     async def _handler(self, ws):
         self.clients.add(ws)
         relay = None
@@ -1196,6 +1244,10 @@ class Server:
                     if re.fullmatch(r"[a-z0-9_]{1,25}", channel) and relay is None:
                         self.clients.discard(ws)   # preview-only socket
                         relay = asyncio.create_task(self._preview_relay(ws, channel))
+                elif isinstance(msg, dict) and msg.get("type") == "eventsub":
+                    if relay is None:
+                        self.clients.discard(ws)   # events-only socket
+                        relay = asyncio.create_task(self._eventsub_relay(ws))
                 elif isinstance(msg, dict) and msg.get("type") == "pvaudio":
                     # one preview plays sound at a time (iCUE can run two copies of a widget)
                     if "device" in msg:

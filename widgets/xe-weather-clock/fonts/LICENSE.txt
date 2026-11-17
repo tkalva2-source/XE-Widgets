@@ -1,0 +1,7 @@
+The fonts in this folder are free fonts licensed under the SIL Open Font License 1.1
+(https://openfontlicense.org), downloaded from Fontsource (https://fontsource.org):
+
+Jost (Indestructible Type), Outfit (Outfitio), Quicksand (Andrew Paglinawan),
+Space Grotesk (Florian Karsten), Bebas Neue (Dharma Type), Orbitron (Matt McInerney),
+Righteous (Astigmatic), Playfair Display (Claus Eggers Sorensen),
+JetBrains Mono (JetBrains).

@@ -1,6 +1,6 @@
 # XE Widgets
 
-Touch-friendly Twitch chat and a now-playing audio visualizer for the **Corsair Xeneon Edge** (iCUE 5 HTML widgets).
+Touch-friendly Twitch chat, a now-playing audio visualizer and a live weather clock for the **Corsair Xeneon Edge** (iCUE 5 HTML widgets).
 
 A vibe-coded fork by **Tkalva**: XE Chat started as a rework of the Lumo chat widget, and XE Visualizer and its companion server grew out of QuadraKev's QK XE Visualizer. Both were rebuilt from the ground up for speed, touch and a cleaner look on the Edge.
 
@@ -8,12 +8,14 @@ A vibe-coded fork by **Tkalva**: XE Chat started as a rework of the Lumo chat wi
   <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Widgets-Server.exe"><img src="https://img.shields.io/badge/%E2%AC%87%20Server-XE--Widgets--Server.exe-9146FF?style=for-the-badge" alt="Download the server"></a>
   <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Chat.icuewidget"><img src="https://img.shields.io/badge/%E2%AC%87%20Widget-XE%20Chat-2b2b33?style=for-the-badge" alt="Download XE Chat"></a>
   <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Visualizer.icuewidget"><img src="https://img.shields.io/badge/%E2%AC%87%20Widget-XE%20Visualizer-2b2b33?style=for-the-badge" alt="Download XE Visualizer"></a>
+  <a href="https://github.com/tkalva2-source/XE-Widgets/releases/latest/download/XE-Weather-Clock.icuewidget"><img src="https://img.shields.io/badge/%E2%AC%87%20Widget-XE%20Weather%20Clock-2b2b33?style=for-the-badge" alt="Download XE Weather Clock"></a>
 </p>
 
 | Widget | What it does |
 |---|---|
-| **XE Chat** | Twitch chat with 7TV / BTTV / FFZ emotes, 7TV name paints and badges, stream info, chatting and moderation once you sign in, your followed channels (live first), and a live stream preview with sound and a theater view. |
+| **XE Chat** | Twitch chat with 7TV / BTTV / FFZ emotes, 7TV name paints and badges, stream info, chatting and moderation once you sign in, your followed channels (live first), a live stream preview with sound and a theater view, clickable links, copy message, and channel point redemptions (every redemption on your own channel). |
 | **XE Visualizer** | Audio visualizer with the current song or video, album art, playback controls, themes and a bass pulse glow. YouTube videos get their HD thumbnail with a channel card (avatar, subscribers, likes, views); any other website shows its own name and icon. Works with Spotify, YouTube, Twitch and anything else Windows shows as "now playing". |
+| **XE Weather Clock** | A clock with live weather and an animated sky that follows the real weather and time of day: the sun and moon travel across it (with the moon's real phase), clouds, rain, snow, lightning and fog, warm sunrises and sunsets. Swipe the forecast panel for hourly, 7-day, details and moon pages. 9 clock fonts, and a demo mode that cycles through every scene. **Doesn't need the server.** |
 
 ## Screenshots
 
@@ -59,9 +61,15 @@ While running it:
 - reads the "now playing" info Windows already shows (song, video, thumbnail) and captures audio for the visualizer,
 - for YouTube videos, looks the video up on youtube.com by its title to get the HD thumbnail, channel avatar, subscriber, like and view counts,
 - shows which website a video or song is playing on. Windows doesn't say which site a browser tab is, so the server finds the tab's page by its title in your browser's own local data (the same place the browser keeps its tab icons), entirely on your PC. It only looks for the page that's playing, never stores or uploads anything, and private windows are left alone,
-- decodes the stream preview when you turn it on.
+- decodes the stream preview when you turn it on,
+- opens links you tap in chat in your default browser (web links only),
+- relays Twitch's live event feed (read-only) so your own channel's point redemptions show in chat; the chat widget makes that subscription itself with your sign-in.
 
 It collects nothing and sends nothing anywhere else. **Uninstall:** right-click the tray icon → *Uninstall…* (removes the program and its startup entry), then remove the widgets in iCUE.
+
+## XE Weather Clock
+
+Works on its own, no server needed. It gets the weather from [Open-Meteo](https://open-meteo.com) (free, no account). With the **City** setting left blank it finds your rough location from your internet address via [GeoJS](https://www.geojs.io); type a city instead if you'd rather it didn't. The forecast refreshes every 15 minutes. Turn on **Demo** in its settings to cycle through every weather and time of day.
 
 ## Signing in to Twitch (optional)
 

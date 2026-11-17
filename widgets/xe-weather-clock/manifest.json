@@ -1,0 +1,20 @@
+{
+  "author": "XE Widgets",
+  "id": "com.xewidgets.weatherclock",
+  "name": "XE Weather Clock",
+  "description": "A clock with live weather for the Xeneon Edge: the current conditions, an hourly forecast and an animated sky that follows the weather (sun, clouds, rain, snow, storms, fog). Weather by Open-Meteo, no account needed.",
+  "version": "1.0.0",
+  "preview_icon": "resources/icon.svg",
+  "min_framework_version": "1.0.0",
+  "os": [
+    {
+      "platform": "windows"
+    }
+  ],
+  "supported_devices": [
+    {
+      "type": "dashboard_lcd"
+    }
+  ],
+  "interactive": true
+}
